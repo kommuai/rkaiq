@@ -10,8 +10,9 @@ Fork of Rockchip camera engine **rkaiq** used to build the KA2 `librkaiq.so` wit
 ## KA2 patches (vs upstream)
 
 1. `cmake/BuildOptions.cmake` — `RKAIQ_HAVE_DEGAMMA=TRUE` and `RKAIQ_HAVE_DEGAMMA_V1=TRUE` for ISP30
-2. `ipc_server/MessageParser.cpp` — `#include <cstdio>` (cross-build fix)
-3. `cmake/toolchains/gcc-system-aarch64.cmake` — host cross-compile toolchain file
+2. `hwi/isp3x/kommu_ox03c10_sdg.cpp` — Spectra OX03C10 degamma → SDG in `convert3aResultsToIspCfg` (replaces openpilot `librk_sdg_hook.so`)
+3. `ipc_server/MessageParser.cpp` — `#include <cstdio>` (cross-build fix)
+4. `cmake/toolchains/gcc-system-aarch64.cmake` — host cross-compile toolchain file
 
 ## Build (host → aarch64)
 

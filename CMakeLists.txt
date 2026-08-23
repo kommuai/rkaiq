@@ -865,6 +865,7 @@ else()
         hwi/isp20/CifScaleStream.cpp
         hwi/isp21/CamHwIsp21.cpp
         hwi/isp3x/CamHwIsp3x.cpp
+        hwi/isp3x/kommu_ox03c10_sdg.cpp
         hwi/isp32/CamHwIsp32.cpp
         hwi/SensorHw.cpp
         hwi/LensHw.cpp

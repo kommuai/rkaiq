@@ -16,6 +16,7 @@
  */
 
 #include "Isp3xParams.h"
+#include "kommu_ox03c10_sdg.h"
 
 namespace RkCam {
 
@@ -1641,6 +1642,7 @@ bool Isp3xParams::convert3aResultsToIspCfg(SmartPtr<cam3aResult> &result,
         return false;
     }
 
+    kommuApplyOx03c10Sdg(isp_cfg);
     return true;
 }
 
