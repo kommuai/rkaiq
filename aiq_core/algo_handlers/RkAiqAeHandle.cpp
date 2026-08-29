@@ -41,14 +41,14 @@ void RkAiqAeHandleInt::init() {
     mPostInParam  = (RkAiqAlgoCom*)(new RkAiqAlgoPostAe());
     mPostOutParam = (RkAiqAlgoResCom*)(new RkAiqAlgoPostResAe());
 #if RKAIQ_HAVE_AF
-    mAf_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AF);
+    mAf_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AF, false);
 #endif
 #if RKAIQ_HAVE_AFD_V1 || RKAIQ_HAVE_AFD_V2
-    mAfd_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AFD);
+    mAfd_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AFD, false);
 #endif
 
-    mAmerge_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AMERGE);
-    mAdrc_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_ADRC);
+    mAmerge_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_AMERGE, false);
+    mAdrc_handle = mAiqCore->getCurAlgoTypeHandle(RK_AIQ_ALGO_TYPE_ADRC, false);
 
     EXIT_ANALYZER_FUNCTION();
 }

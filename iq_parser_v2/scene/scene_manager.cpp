@@ -309,8 +309,7 @@ cJSON *RkAiqSceneManager::mergeSubMultiScene(cJSON *sub_scene_list,
 
   // need skip first full param scene
   sub_scene_sum = cJSON_GetArraySize(sub_scene_list);
-  if ((skip && sub_scene_sum < 2) ||
-      (!skip && sub_scene_sum < 1)) {
+  if (sub_scene_sum < 1) {
     XCAM_LOG_ERROR("invalid main scene len!\n");
     return NULL;
   }

@@ -32,7 +32,7 @@ class TnrStatsStream : public RKStream, public PollCallback
 public:
     explicit TnrStatsStream (SmartPtr<V4l2Device> dev, int type);
     virtual ~TnrStatsStream      ();
-    void start                  ();
+    XCamReturn start            ();
     void stop                   ();
     void set_device             (CamHwIsp20* camHw, SmartPtr<V4l2SubDevice> dev);
     //bool thread_proc            ();

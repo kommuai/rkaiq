@@ -23,6 +23,7 @@
 #include <linux/v4l2-subdev.h>
 #include <sys/mman.h>
 #include <dlfcn.h>
+#include <errno.h>
 #include <linux/dma-buf.h>
 #include <sys/ioctl.h>
 #ifdef ANDROID_OS
@@ -2820,6 +2821,7 @@ CamHwIsp20::prepare(uint32_t width, uint32_t height, int mode, int t_delay, int 
         ret = setupPipelineFmt();
         if (ret < 0) {
             LOGE_CAMHW_SUBM(ISP20HW_SUBM, "setupPipelineFmt err: %d\n", ret);
+            return ret;
         }
     }
 
@@ -2974,44 +2976,71 @@ CamHwIsp20::start()
         ret = mParamsAssembler->start();
         if (ret < 0) {
             LOGE_CAMHW_SUBM(ISP20HW_SUBM, "params assembler start err: %d\n", ret);
+            return ret;
         }
 
         if (mParamsAssembler->ready())
             setIspConfig();
     }
 #endif
-    if (mLumaStream.ptr())
-        mLumaStream->start();
+    if (mLumaStream.ptr()) {
+        ret = mLumaStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start luma stream failed: %d\n", ret);
+            return ret;
+        }
+    }
     if (mIspSofStream.ptr()) {
         mIspSofStream->setCamPhyId(mCamPhyId);
-        mIspSofStream->start();
+        ret = mIspSofStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start ISP SOF stream failed: %d\n", ret);
+            return ret;
+        }
     }
     if (mIspAiispStream.ptr()) {
         mIspAiispStream->setCamPhyId(mCamPhyId);
-        mIspAiispStream->start();
+        ret = mIspAiispStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start AIISP stream failed: %d\n", ret);
+            return ret;
+        }
     }
 
-    if (_linked_to_isp)
-        mIspCoreDev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
+    if (_linked_to_isp) {
+        ret = mIspCoreDev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
+        if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "subscribe ISP frame-sync failed: %d\n", ret);
+            return ret;
+        }
+    }
 
     if (mIspStremEvtTh.ptr()) {
         ret = mIspStremEvtTh->start();
         if (ret < 0) {
             LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start isp stream event failed: %d\n", ret);
+            return ret;
         }
     } else {
         ret = hdr_mipi_start_mode(_hdr_mode);
         if (ret < 0) {
             LOGE_CAMHW_SUBM(ISP20HW_SUBM, "hdr mipi start err: %d\n", ret);
+            return ret;
         }
     }
 
     ret = mIspCoreDev->start();
     if (ret < 0) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start isp core dev err: %d\n", ret);
+        return ret;
     }
-    if (mIspStatsStream.ptr())
-        mIspStatsStream->start();
+    if (mIspStatsStream.ptr()) {
+        ret = mIspStatsStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start ISP stats stream failed: %d\n", ret);
+            return ret;
+        }
+    }
 
     if (mFlashLight.ptr()) {
         ret = mFlashLight->start();
@@ -3035,8 +3064,13 @@ CamHwIsp20::start()
     }
 
 #ifndef DISABLE_PARAMS_POLL_THREAD
-    if (mIspParamStream.ptr())
-        mIspParamStream->startThreadOnly();
+    if (mIspParamStream.ptr()) {
+        ret = mIspParamStream->startThreadOnly();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start ISP params stream failed: %d\n", ret);
+            return ret;
+        }
+    }
 #endif
 
 #if defined(ISP_HW_V20)
@@ -3049,7 +3083,11 @@ CamHwIsp20::start()
     if (mFecParamStream.ptr())
         mFecParamStream->start();
 #endif
-    sensorHw->start();
+    ret = sensorHw->start();
+    if (ret < 0) {
+        LOGE_CAMHW_SUBM(ISP20HW_SUBM, "start sensor failed: %d\n", ret);
+        return ret;
+    }
     if (lensHw)
         lensHw->start();
     _is_exit = false;
@@ -3128,8 +3166,12 @@ CamHwIsp20::hdr_mipi_start_mode(int mode)
 
     if (!mNoReadBack && !use_rkrawstream) {
         if (!_linked_to_1608) {
-            mRawCapUnit->start(mode);
-            mRawProcUnit->start(mode);
+            ret = mRawCapUnit->start(mode);
+            if (ret < 0)
+                return ret;
+            ret = mRawProcUnit->start(mode);
+            if (ret < 0)
+                return ret;
         } else {
             SmartLock locker(_sync_1608_mutex);
             bool stream_on = false;
@@ -3141,9 +3183,13 @@ CamHwIsp20::hdr_mipi_start_mode(int mode)
                 stream_on = true;
             }
             if (stream_on) {
-                mRawCapUnit->start(mode);
+                ret = mRawCapUnit->start(mode);
+                if (ret < 0)
+                    return ret;
             }
-            mRawProcUnit->start(mode);
+            ret = mRawProcUnit->start(mode);
+            if (ret < 0)
+                return ret;
             if (stream_on) {
                 _sync_1608_done = true;
                 _sync_done_cond.broadcast();
@@ -3152,8 +3198,11 @@ CamHwIsp20::hdr_mipi_start_mode(int mode)
             }
         }
     }
-    if (mCifScaleStream.ptr())
-        mCifScaleStream->start();
+    if (mCifScaleStream.ptr()) {
+        ret = mCifScaleStream->start();
+        if (ret < 0)
+            return ret;
+    }
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "%s exit", __FUNCTION__);
     return ret;
 }
@@ -3463,6 +3512,7 @@ XCamReturn CamHwIsp20::resume()
     ret = mParamsAssembler->start();
     if (ret < 0) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "params assembler start err: %d\n", ret);
+        return ret;
     }
 
     if (mParamsAssembler->ready())
@@ -3471,20 +3521,50 @@ XCamReturn CamHwIsp20::resume()
     ret = hdr_mipi_start_mode(_hdr_mode);
     if (ret < 0) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "hdr mipi start err: %d\n", ret);
+        return ret;
     }
-    sensorHw->start();
-    if (mIspSofStream.ptr())
-        mIspSofStream->start();
-    if (mIspAiispStream.ptr())
-        mIspAiispStream->start();
+    ret = sensorHw->start();
+    if (ret < 0) {
+        LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume sensor failed: %d\n", ret);
+        return ret;
+    }
+    if (mIspSofStream.ptr()) {
+        ret = mIspSofStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume ISP SOF stream failed: %d\n", ret);
+            return ret;
+        }
+    }
+    if (mIspAiispStream.ptr()) {
+        ret = mIspAiispStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume AIISP stream failed: %d\n", ret);
+            return ret;
+        }
+    }
 #ifndef DISABLE_PARAMS_POLL_THREAD
-    if (mIspParamStream.ptr())
-        mIspParamStream->startThreadOnly();
+    if (mIspParamStream.ptr()) {
+        ret = mIspParamStream->startThreadOnly();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume ISP params stream failed: %d\n", ret);
+            return ret;
+        }
+    }
 #endif
-    if (mLumaStream.ptr())
-        mLumaStream->start();
-    if (mIspStatsStream.ptr())
-        mIspStatsStream->start();
+    if (mLumaStream.ptr()) {
+        ret = mLumaStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume luma stream failed: %d\n", ret);
+            return ret;
+        }
+    }
+    if (mIspStatsStream.ptr()) {
+        ret = mIspStatsStream->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "resume ISP stats stream failed: %d\n", ret);
+            return ret;
+        }
+    }
 
 #if defined(ISP_HW_V20)
     if (mTnrStreamProcUnit.ptr())

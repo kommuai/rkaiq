@@ -43,10 +43,10 @@ NrStatsStream::~NrStatsStream()
 {
 }
 
-void
+XCamReturn
 NrStatsStream::start()
 {
-    RKStream::start();
+    return RKStream::start();
 }
 
 void

@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
 #include "Stream.h"
 #include "Isp20StatsBuffer.h"
 #include "rkisp2-config.h"
@@ -377,11 +378,15 @@ RKStream::~RKStream()
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "~RKStream destructed");
 }
 
-void
+XCamReturn
 RKStream::start()
 {
-    if (!_dev->is_activated())
-        _dev->start(_dev_prepared);
+    XCamReturn ret = XCAM_RETURN_NO_ERROR;
+    if (!_dev->is_activated()) {
+        ret = _dev->start(_dev_prepared);
+        if (ret < 0)
+            return ret;
+    }
 
     _poll_thread->setCamPhyId(mCamPhyId);
     if (_dev_type == ISP_POLL_3A_STATS || \
@@ -390,10 +395,10 @@ RKStream::start()
         _poll_thread->set_policy(SCHED_RR);
         _poll_thread->set_priority(20);
     }
-    _poll_thread->start();
+    return _poll_thread->start();
 }
 
-void
+XCamReturn
 RKStream::startThreadOnly()
 {
     _poll_thread->setCamPhyId(mCamPhyId);
@@ -403,14 +408,15 @@ RKStream::startThreadOnly()
         _poll_thread->set_policy(SCHED_RR);
         _poll_thread->set_priority(20);
     }
-    _poll_thread->start();
+    return _poll_thread->start();
 }
 
-void
+XCamReturn
 RKStream::startDeviceOnly()
 {
     if (!_dev->is_activated())
-        _dev->start(_dev_prepared);
+        return _dev->start(_dev_prepared);
+    return XCAM_RETURN_NO_ERROR;
 }
 
 void
@@ -560,21 +566,45 @@ RKSofEventStream::~RKSofEventStream()
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "~RKSofEventStream destructed");
 }
 
-void
+XCamReturn
 RKSofEventStream::start()
 {
-    _subdev->start(_dev_prepared);
+    XCamReturn ret = _subdev->start(_dev_prepared);
+    if (ret < 0)
+        return ret;
     _poll_thread->setCamPhyId(mCamPhyId);
-    _poll_thread->start();
-    _subdev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
+    ret = _poll_thread->start();
+    if (ret < 0)
+        return ret;
+    // CIF subdevices on some ISP30 topologies do not expose the generic
+    // frame-sync subscription. The poll stream is still valid there and the
+    // existing SOF path continues through the supported event source.
+    ret = _subdev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
+    if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
+        LOGE_CAMHW_SUBM(ISP20HW_SUBM,
+                        "subscribe frame-sync event failed: %d", ret);
+        return ret;
+    }
     if (_linked_to_1608) {
         if (!_is_subscribed.load()) {
-            _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
-            _is_subscribed.store(true);
+            ret = _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
+            if (ret >= 0)
+                _is_subscribed.store(true);
+            else if (ret != -EINVAL && ret != -ENOTTY) {
+                LOGE_CAMHW_SUBM(ISP20HW_SUBM,
+                                "subscribe reset event failed: %d", ret);
+                return ret;
+            }
         }
     } else {
-        _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
+        ret = _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
+        if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM,
+                            "subscribe reset event failed: %d", ret);
+            return ret;
+        }
     }
+    return XCAM_RETURN_NO_ERROR;
 }
 
 void
@@ -641,13 +671,17 @@ RKAiispEventStream::~RKAiispEventStream()
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "~RKAiispEventStream destructed");
 }
 
-void
+XCamReturn
 RKAiispEventStream::start()
 {
-    _subdev->start(_dev_prepared);
+    XCamReturn ret = _subdev->start(_dev_prepared);
+    if (ret < 0)
+        return ret;
     _poll_thread->setCamPhyId(mCamPhyId);
-    _poll_thread->start();
-    _subdev->subscribe_event(RKISP_V4L2_EVENT_AIISP_LINECNT);
+    ret = _poll_thread->start();
+    if (ret < 0)
+        return ret;
+    return _subdev->subscribe_event(RKISP_V4L2_EVENT_AIISP_LINECNT);
 }
 
 void

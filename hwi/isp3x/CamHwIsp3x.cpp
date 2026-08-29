@@ -86,7 +86,7 @@ CamHwIsp3x::updateEffParams(void* params, void* ori_params) {
             dst_param = new_param; \
         } else { \
            if (!is_got_latest_params) { \
-                LOGE_CAMHW_SUBM(ISP20HW_SUBM, "impossible, no effect isp params!"); \
+                dst_param = new_param; \
            } else { \
                 dst_param = latest_param; \
            } \

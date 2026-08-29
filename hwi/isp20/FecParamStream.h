@@ -34,7 +34,7 @@ public:
     virtual ~FecParamStream      ();
     XCamReturn config_params (uint32_t frameId, SmartPtr<cam3aResult>& result);
     void set_devices             (CamHwIsp20* camHw, SmartPtr<V4l2SubDevice> isppdev);
-    virtual void start             ();
+    virtual XCamReturn start       ();
     virtual void stop              ();
 protected:
     XCamReturn configToDrv(uint32_t frameId);

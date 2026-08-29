@@ -108,9 +108,9 @@ public:
     RKStream               (SmartPtr<V4l2SubDevice> dev, int type);
     RKStream               (const char *path, int type);
     virtual ~RKStream      ();
-    virtual void start                  ();
-    virtual void startThreadOnly        ();
-    virtual void startDeviceOnly        ();
+    virtual XCamReturn start             ();
+    virtual XCamReturn startThreadOnly   ();
+    virtual XCamReturn startDeviceOnly   ();
     virtual void stop                   ();
     virtual void stopThreadOnly         ();
     virtual void stopDeviceOnly         ();
@@ -172,7 +172,7 @@ public:
     RKSofEventStream               (SmartPtr<V4l2SubDevice> dev, int type, bool linkedToRk1608 = false);
     // RKSofEventStream               (const char *name, int type, bool linkedTo1608 = false);
     virtual ~RKSofEventStream      ();
-    virtual void start             ();
+    virtual XCamReturn start       ();
     virtual void stop              ();
     virtual SmartPtr<VideoBuffer>
     new_video_buffer               (struct v4l2_event &event, SmartPtr<V4l2Device> dev);
@@ -189,7 +189,7 @@ public:
     RKAiispEventStream               (SmartPtr<V4l2SubDevice> dev, int type);
     // RKSofEventStream               (const char *name, int type, bool linkedTo1608 = false);
     virtual ~RKAiispEventStream      ();
-    virtual void start             ();
+    virtual XCamReturn start       ();
     virtual void stop();
     XCamReturn set_aiisp_linecnt(rk_aiq_aiisp_cfg_t aiisp_cfg);
     XCamReturn get_aiisp_bay3dbuf();

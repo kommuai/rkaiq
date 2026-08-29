@@ -132,8 +132,11 @@ XCamReturn CifSclStream::start()
 {
     if (_init && !_active) {
         for (int i = 0; i < index; i++) {
-            if (_stream[i].ptr())
-                _stream[i]->start();
+            if (!_stream[i].ptr())
+                return XCAM_RETURN_ERROR_PARAM;
+            XCamReturn ret = _stream[i]->start();
+            if (ret < 0)
+                return ret;
         }
         _active = true;
     }
@@ -156,18 +159,27 @@ CifSclStream::restart(const rk_sensor_full_info_t *s_info, int ratio, PollCallba
     XCamReturn ret = XCAM_RETURN_NO_ERROR;
 
     if (mode) {
-        if (!_init)
+        if (!_init) {
             ret = init(s_info, callback);
+            if (ret < 0)
+                return ret;
+        }
 
         if (ratio != _ratio) {
             if (_active) {
-                stop();
+                ret = stop();
+                if (ret < 0)
+                    return ret;
             }
             ret = set_ratio_fmt(ratio);
+            if (ret < 0)
+                return ret;
         }
 
         if (!_active && _init) {
             ret = prepare();
+            if (ret < 0)
+                return ret;
             ret = start();
         }
     } else {

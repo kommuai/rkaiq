@@ -20,6 +20,7 @@
 #include <linux/v4l2-subdev.h>
 
 #include <algorithm>
+#include <cerrno>
 
 #include "code_to_pixel_format.h"
 
@@ -1131,7 +1132,9 @@ SensorHw::handle_sof(int64_t time, uint32_t frameid)
     _mutex.unlock();
     // update flip, skip _frame_sequence
     if (_update_mirror_flip) {
-        _set_mirror_flip();
+        ret = _set_mirror_flip();
+        if (ret < 0)
+            return ret;
         _update_mirror_flip = false;
     }
 
@@ -1247,7 +1250,9 @@ SensorHw::handle_sof_internal(int64_t time, uint32_t frameid)
 
     // update flip, skip _frame_sequence
     if (_update_mirror_flip && !_is_i2c_exp) {
-        _set_mirror_flip();
+        ret = _set_mirror_flip();
+        if (ret < 0)
+            return ret;
         _update_mirror_flip = false;
     }
 
@@ -1368,7 +1373,7 @@ SensorHw::set_sync_mode(uint32_t mode)
 {
     if (io_control(RKMODULE_SET_SYNC_MODE, &mode) < 0) {
         LOGW_CAMHW_SUBM(SENSOR_SUBM, "failed to set sync mode %d", mode);
-        //return XCAM_RETURN_ERROR_IOCTL;
+        return XCAM_RETURN_ERROR_IOCTL;
     }
 
     LOGI_CAMHW_SUBM(SENSOR_SUBM, "set sync mode %d", mode);
@@ -1380,6 +1385,7 @@ XCamReturn
 SensorHw::set_working_mode(int mode)
 {
     rkmodule_hdr_cfg hdr_cfg;
+    rkmodule_hdr_cfg current_cfg;
     __u32 hdr_mode = NO_HDR;
 
     xcam_mem_clear(hdr_cfg);
@@ -1396,9 +1402,37 @@ SensorHw::set_working_mode(int mode)
         return XCAM_RETURN_ERROR_FAILED;
     }
     hdr_cfg.hdr_mode = hdr_mode;
-    if (io_control(RKMODULE_SET_HDR_CFG, &hdr_cfg) < 0) {
-        LOGE_CAMHW_SUBM(SENSOR_SUBM, "failed to set hdr mode %d", hdr_mode);
-        //return XCAM_RETURN_ERROR_IOCTL;
+
+    // The sensor subdevice is opened by start(). Keep the requested mode for
+    // that point instead of issuing ioctls against an inactive descriptor.
+    if (!is_activated()) {
+        _working_mode = mode;
+        return XCAM_RETURN_NO_ERROR;
+    }
+
+    // Avoid an unnecessary mode write. Some sensor drivers reject a mode
+    // update while the current stream state is being prepared, even when the
+    // requested mode is already active.
+    xcam_mem_clear(current_cfg);
+    int get_ret = io_control(RKMODULE_GET_HDR_CFG, &current_cfg);
+    if (get_ret < 0 ||
+            current_cfg.hdr_mode != hdr_mode) {
+        int set_ret = io_control(RKMODULE_SET_HDR_CFG, &hdr_cfg);
+        if (set_ret < 0) {
+            LOGE_CAMHW_SUBM(SENSOR_SUBM, "failed to set hdr mode %d (errno: %d)",
+                            hdr_mode, errno);
+            return XCAM_RETURN_ERROR_IOCTL;
+        }
+
+        xcam_mem_clear(current_cfg);
+        get_ret = io_control(RKMODULE_GET_HDR_CFG, &current_cfg);
+        if (get_ret < 0 ||
+                current_cfg.hdr_mode != hdr_mode) {
+            LOGE_CAMHW_SUBM(SENSOR_SUBM,
+                            "sensor hdr mode verification failed: requested %d, got %d",
+                            hdr_mode, current_cfg.hdr_mode);
+            return XCAM_RETURN_ERROR_IOCTL;
+        }
     }
 
     _working_mode = mode;
@@ -1425,6 +1459,7 @@ SensorHw::_set_mirror_flip() {
     ctrl.value = _flip ? 1 : 0;
     if (io_control(VIDIOC_S_CTRL, &ctrl) < 0) {
         LOGE_CAMHW_SUBM(SENSOR_SUBM, "failed to set vflip (val: %d)", ctrl.value);
+        return XCAM_RETURN_ERROR_IOCTL;
     }
 
     LOGD_CAMHW_SUBM(SENSOR_SUBM, "set mirror %d, flip %d", _mirror, _flip);
@@ -1441,7 +1476,11 @@ SensorHw::set_mirror_flip(bool mirror, bool flip, int32_t& skip_frame_sequence)
     if (!is_activated()) {
         _flip = flip;
         _mirror = mirror;
-        _set_mirror_flip();
+        XCamReturn ret = _set_mirror_flip();
+        if (ret < 0) {
+            _mutex.unlock();
+            return ret;
+        }
         goto end;
     }
 
@@ -1530,9 +1569,16 @@ XCamReturn
 SensorHw::start(bool prepared)
 {
     ENTER_CAMHW_FUNCTION();
-    V4l2SubDevice::start(prepared);
+    XCamReturn ret = V4l2SubDevice::start(prepared);
+    if (ret < 0) {
+        LOGE_CAMHW_SUBM(SENSOR_SUBM, "sensor stream start failed: %d", ret);
+    } else {
+        ret = set_working_mode(_working_mode);
+        if (ret < 0)
+            LOGE_CAMHW_SUBM(SENSOR_SUBM, "sensor HDR mode setup failed: %d", ret);
+    }
     EXIT_CAMHW_FUNCTION();
-    return XCAM_RETURN_NO_ERROR;
+    return ret;
 }
 
 XCamReturn

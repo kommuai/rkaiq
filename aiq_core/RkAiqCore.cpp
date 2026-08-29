@@ -1224,13 +1224,14 @@ RkAiqCore::getAiqAlgoHandle(const int algo_type)
 }
 
 SmartPtr<RkAiqHandle>*
-RkAiqCore::getCurAlgoTypeHandle(int algo_type)
+RkAiqCore::getCurAlgoTypeHandle(int algo_type, bool log_missing)
 {
     // get defalut algo handle(id == 0)
     if (mCurAlgoHandleMaps.find(algo_type) != mCurAlgoHandleMaps.end())
         return &mCurAlgoHandleMaps.at(algo_type);
 
-    LOGE("can't find algo handle %d", algo_type);
+    if (log_missing)
+        LOGE("can't find algo handle %d", algo_type);
     return NULL;
 }
 

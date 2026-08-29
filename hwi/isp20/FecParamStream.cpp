@@ -44,25 +44,29 @@ FecParamStream::~FecParamStream()
 {
 }
 
-void
+XCamReturn
 FecParamStream::start()
 {
     XCamReturn ret = XCAM_RETURN_NO_ERROR;
 
     if (!_dev->is_activated()) {
-        RKStream::start();
+        ret = RKStream::start();
+        if (ret < 0)
+            return ret;
     }
     // set inital params
     ret = mParamsAssembler->start();
     if (ret < 0) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "params assembler start err: %d\n", ret);
-        return;
+        return ret;
     }
 
     if (mParamsAssembler->ready())
-        configToDrv(0);
-    else
+        return configToDrv(0);
+    else {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "no inital fec params ready");
+        return XCAM_RETURN_ERROR_FAILED;
+    }
 }
 
 void

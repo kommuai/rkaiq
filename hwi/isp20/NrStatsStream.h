@@ -31,7 +31,7 @@ class NrStatsStream  : public RKStream, public PollCallback
 public:
     explicit NrStatsStream      (SmartPtr<V4l2Device> dev, int type);
     virtual ~NrStatsStream      ();
-    void start                  ();
+    XCamReturn start            ();
     void stop                   ();
     void set_device             (CamHwIsp20* camHw, SmartPtr<V4l2SubDevice> dev);
     virtual SmartPtr<VideoBuffer> new_video_buffer(SmartPtr<V4l2Buffer> buf, SmartPtr<V4l2Device> dev);

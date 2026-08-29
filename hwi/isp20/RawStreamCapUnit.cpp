@@ -144,10 +144,17 @@ RawStreamCapUnit::~RawStreamCapUnit ()
 
 XCamReturn RawStreamCapUnit::start(int mode)
 {
+    XCamReturn ret = XCAM_RETURN_NO_ERROR;
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "%s enter", __FUNCTION__);
     for (int i = 0; i < _mipi_dev_max; i++) {
+        if (!_stream[i].ptr())
+            return XCAM_RETURN_ERROR_PARAM;
         _stream[i]->setCamPhyId(mCamPhyId);
-        _stream[i]->start();
+        ret = _stream[i]->start();
+        if (ret < 0) {
+            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "mipi tx:%d start err: %d", i, ret);
+            return ret;
+        }
     }
     _state = RAW_CAP_STATE_STARTED;
     LOGD_CAMHW_SUBM(ISP20HW_SUBM, "%s exit", __FUNCTION__);

@@ -33,10 +33,10 @@ TnrStatsStream::~TnrStatsStream()
 {
 }
 
-void
+XCamReturn
 TnrStatsStream::start()
 {
-    RKStream::start();
+    return RKStream::start();
 }
 
 void

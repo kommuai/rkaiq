@@ -456,7 +456,8 @@ public:
         return mInitDisAlgosMask;
     }
     // TODO(Cody): Just AF use it, should it be public ?
-    SmartPtr<RkAiqHandle>* getCurAlgoTypeHandle(int algo_type);
+    SmartPtr<RkAiqHandle>* getCurAlgoTypeHandle(int algo_type,
+                                                bool log_missing = true);
 #if RKAIQ_HAVE_ASD_V10
     virtual XCamReturn genCpslResult(RkAiqFullParams* params, RkAiqAlgoPreResAsd* asd_pre_rk);
 #endif

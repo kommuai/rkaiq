@@ -21,21 +21,23 @@ SPStreamProcUnit::~SPStreamProcUnit ()
 {
 }
 
-void SPStreamProcUnit::start()
+XCamReturn SPStreamProcUnit::start()
 {
+    XCamReturn ret = XCAM_RETURN_NO_ERROR;
     if (_isp_ver == ISP_V20) {
         struct rkispp_trigger_mode tnr_trigger;
         tnr_trigger.module = ISPP_MODULE_TNR;
         tnr_trigger.on = 1;
-        _ispp_dev->io_control(RKISPP_CMD_TRIGGER_MODE, &tnr_trigger);
+        ret = _ispp_dev->io_control(RKISPP_CMD_TRIGGER_MODE, &tnr_trigger);
+        if (ret < 0)
+            return ret;
     }
 
     if (ldg_enable) {
         pAfTmp = (uint8_t*)malloc(_ds_width_align * _ds_height_align * sizeof(pAfTmp[0]) * 3 / 2);
     }
 
-    RKStream::start();
-    return;
+    return RKStream::start();
 }
 
 void SPStreamProcUnit::stop()

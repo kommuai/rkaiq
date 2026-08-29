@@ -68,7 +68,7 @@ class SPStreamProcUnit       : public RKStream, public PollCallback
 public:
     explicit SPStreamProcUnit (SmartPtr<V4l2Device> isp_sp_dev, int type, int isp_ver);
     virtual ~SPStreamProcUnit ();
-    virtual void start ();
+    virtual XCamReturn start ();
     virtual void stop ();
     virtual SmartPtr<VideoBuffer> new_video_buffer(SmartPtr<V4l2Buffer> buf, SmartPtr<V4l2Device> dev);
     XCamReturn prepare (CalibDbV2_Af_LdgParam_t *ldg_param, CalibDbV2_Af_HighLightParam_t *highlight, int width = 0, int height = 0, int stride = 0);
@@ -127,4 +127,3 @@ protected:
 
 }
 #endif
-
