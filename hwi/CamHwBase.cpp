@@ -52,6 +52,17 @@ CamHwBase::deInit()
 }
 
 XCamReturn
+CamHwBase::setExternalExposureInfo(uint32_t sequence,
+                                   const rk_aiq_frame_info_t& frame_info)
+{
+    SensorHw* sensor = mSensorDev.get_cast_ptr<SensorHw>();
+    if (!sensor)
+        return XCAM_RETURN_ERROR_PARAM;
+
+    return sensor->set_external_exposure_info(sequence, frame_info);
+}
+
+XCamReturn
 CamHwBase::prepare(uint32_t width, uint32_t height, int mode, int t_delay, int g_delay)
 {
     // TODO

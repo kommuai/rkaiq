@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 2.8...3.22)
 
-if (ARCH STREQUAL "arm")
+if (CMAKE_CROSSCOMPILING AND ARCH STREQUAL "arm")
     set(J2S_HOST_CFLAGS -m32 -std=gnu99 -malign-double)
-elseif (ARCH STREQUAL "aarch64")
+elseif (CMAKE_CROSSCOMPILING AND ARCH STREQUAL "aarch64")
     set(J2S_HOST_CFLAGS -m64 -std=gnu99 -malign-double)
+elseif (ARCH STREQUAL "arm" OR ARCH STREQUAL "aarch64")
+    set(J2S_HOST_CFLAGS -std=gnu99)
 endif()
 
 project(j2s)
@@ -109,4 +111,3 @@ add_dependencies(iq_check dump_tool)
 
 install(TARGETS j2s DESTINATION lib)
 install(TARGETS iq_check DESTINATION bin)
-

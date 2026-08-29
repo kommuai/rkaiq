@@ -141,6 +141,10 @@ public:
     virtual void setTbInfo(RkAiqTbInfo_t& info) = 0;
     virtual void setDevBufCnt(const std::map<std::string, int>& dev_buf_cnt_map) = 0;
     virtual XCamReturn reset_hardware() = 0;
+    // Record exposure applied by an owner outside rkaiq. This must not program
+    // the sensor; it only supplies per-frame metadata to the ISP algorithms.
+    virtual XCamReturn setExternalExposureInfo(uint32_t sequence,
+                                               const rk_aiq_frame_info_t& frame_info) = 0;
     virtual XCamReturn rawReproc_genIspParams (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo, int mode) = 0;
     virtual XCamReturn rawReProc_prepare (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo) = 0;
     virtual void setRawStreamInfo(rk_aiq_rkrawstream_info_t *info) = 0;

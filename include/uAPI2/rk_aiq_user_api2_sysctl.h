@@ -489,6 +489,16 @@ XCamReturn
 rk_aiq_uapi2_sysctl_resetCam(const rk_aiq_sys_ctx_t* sys_ctx, int camId);
 
 /**
+ * @brief Publish exposure owned by an external sensor controller for one frame.
+ * This updates rkaiq's effective-exposure metadata only; it never writes sensor
+ * registers.
+ */
+XCamReturn
+rk_aiq_uapi2_sysctl_setExternalExposureInfo(const rk_aiq_sys_ctx_t* sys_ctx,
+                                            uint32_t sequence,
+                                            const rk_aiq_frame_info_t* frame_info);
+
+/**
  * @brief generated isp params for offline raw
  *
  * @param sys_ctx

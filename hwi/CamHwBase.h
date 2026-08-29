@@ -157,6 +157,8 @@ public:
     virtual XCamReturn reset_hardware() {
         return XCAM_RETURN_ERROR_FAILED;
     };
+    virtual XCamReturn setExternalExposureInfo(uint32_t sequence,
+                                               const rk_aiq_frame_info_t& frame_info);
     virtual XCamReturn rawReproc_genIspParams (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo, int mode) {
         return XCAM_RETURN_ERROR_FAILED;
     }

@@ -130,6 +130,10 @@ public:
     virtual XCamReturn set_sync_mode(uint32_t mode);
 
     virtual XCamReturn set_effecting_exp_map(uint32_t sequence, void *exp_ptr, int mode);
+    // Typed path for userspace-owned linear exposure metadata. Keep the
+    // legacy void* entrypoint for offline and HDR callers.
+    XCamReturn set_external_exposure_info(uint32_t sequence,
+                                          const rk_aiq_frame_info_t& frame_info);
     virtual XCamReturn set_pause_flag(bool isPause, uint32_t frameId, bool isSingleMode);
     bool get_is_single_mode() {
         return mIsSingleMode;

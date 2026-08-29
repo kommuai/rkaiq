@@ -360,6 +360,18 @@ rk_aiq_uapi2_sysctl_resetCam(const rk_aiq_sys_ctx_t* sys_ctx, int camId)
     return ret;
 }
 
+XCamReturn
+rk_aiq_uapi2_sysctl_setExternalExposureInfo(const rk_aiq_sys_ctx_t* sys_ctx,
+                                            uint32_t sequence,
+                                            const rk_aiq_frame_info_t* frame_info)
+{
+    if (!sys_ctx || !frame_info || !sys_ctx->_camHw.ptr())
+        return XCAM_RETURN_ERROR_PARAM;
+
+    RKAIQ_API_SMART_LOCK(sys_ctx);
+    return sys_ctx->_camHw->setExternalExposureInfo(sequence, *frame_info);
+}
+
 void rk_aiq_uapi2_sysctl_rawReproc_genIspParams (rk_aiq_sys_ctx_t* sys_ctx,
                                                  uint32_t sequence,
                                                  rk_aiq_frame_info_t *next_frm_info,
