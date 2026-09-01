@@ -134,6 +134,11 @@ public:
     // legacy void* entrypoint for offline and HDR callers.
     XCamReturn set_external_exposure_info(uint32_t sequence,
                                           const rk_aiq_frame_info_t& frame_info);
+    XCamReturn set_external_exposure_info_v2(uint32_t sequence,
+                                             float effective_gain,
+                                             uint32_t sensor_gain_code,
+                                             uint32_t integration_lines,
+                                             bool high_conversion_gain);
     virtual XCamReturn set_pause_flag(bool isPause, uint32_t frameId, bool isSingleMode);
     bool get_is_single_mode() {
         return mIsSingleMode;

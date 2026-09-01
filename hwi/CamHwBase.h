@@ -159,6 +159,11 @@ public:
     };
     virtual XCamReturn setExternalExposureInfo(uint32_t sequence,
                                                const rk_aiq_frame_info_t& frame_info);
+    virtual XCamReturn setExternalExposureInfoV2(uint32_t sequence,
+                                                 float effective_gain,
+                                                 uint32_t sensor_gain_code,
+                                                 uint32_t integration_lines,
+                                                 bool high_conversion_gain);
     virtual XCamReturn rawReproc_genIspParams (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo, int mode) {
         return XCAM_RETURN_ERROR_FAILED;
     }

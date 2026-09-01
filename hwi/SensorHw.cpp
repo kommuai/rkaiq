@@ -67,6 +67,18 @@ void populate_frame_exposure(RKAiqAecExpInfo_t& exposure,
                       (float)frame_info.hdr_exp_s_reg);
 }
 
+void populate_external_exposure(RKAiqAecExpInfo_t& exposure,
+                                float effective_gain,
+                                uint32_t sensor_gain_code,
+                                uint32_t integration_lines,
+                                bool high_conversion_gain) {
+    memset(&exposure, 0, sizeof(exposure));
+    populate_exposure(exposure.LinearExp, sensor_gain_code, integration_lines,
+                      effective_gain, static_cast<float>(integration_lines));
+    exposure.LinearExp.exp_real_params.dcg_mode = high_conversion_gain ? 1 : 0;
+    exposure.CISFeature.SNR = high_conversion_gain ? 1 : 0;
+}
+
 } // namespace
 
 uint16_t SensorHw::DEFAULT_POOL_SIZE = MAX_AEC_EFFECT_FNUM * 4;
@@ -1652,6 +1664,34 @@ SensorHw::set_external_exposure_info(uint32_t sequence,
 
     SmartPtr<RkAiqSensorExpParamsProxy> exp_param_prx = _expParamsPool->get_item();
     populate_frame_exposure(exp_param_prx->data()->aecExpInfo, frame_info, false);
+    _effecting_exp_map[sequence] = exp_param_prx;
+    _mutex.unlock();
+    return XCAM_RETURN_NO_ERROR;
+}
+
+XCamReturn
+SensorHw::set_external_exposure_info_v2(uint32_t sequence,
+                                        float effective_gain,
+                                        uint32_t sensor_gain_code,
+                                        uint32_t integration_lines,
+                                        bool high_conversion_gain)
+{
+    if (effective_gain <= 0.0f || sensor_gain_code == 0 || integration_lines == 0)
+        return XCAM_RETURN_ERROR_PARAM;
+
+    _mutex.lock();
+    while (_effecting_exp_map.size() > 4)
+        _effecting_exp_map.erase(_effecting_exp_map.begin());
+
+    SmartPtr<RkAiqSensorExpParamsProxy> exp_param_prx = _expParamsPool->get_item();
+    if (!exp_param_prx.ptr()) {
+        _mutex.unlock();
+        return XCAM_RETURN_ERROR_MEM;
+    }
+
+    populate_external_exposure(exp_param_prx->data()->aecExpInfo, effective_gain,
+                               sensor_gain_code, integration_lines,
+                               high_conversion_gain);
     _effecting_exp_map[sequence] = exp_param_prx;
     _mutex.unlock();
     return XCAM_RETURN_NO_ERROR;

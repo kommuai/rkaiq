@@ -145,6 +145,11 @@ public:
     // the sensor; it only supplies per-frame metadata to the ISP algorithms.
     virtual XCamReturn setExternalExposureInfo(uint32_t sequence,
                                                const rk_aiq_frame_info_t& frame_info) = 0;
+    virtual XCamReturn setExternalExposureInfoV2(uint32_t sequence,
+                                                 float effective_gain,
+                                                 uint32_t sensor_gain_code,
+                                                 uint32_t integration_lines,
+                                                 bool high_conversion_gain) = 0;
     virtual XCamReturn rawReproc_genIspParams (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo, int mode) = 0;
     virtual XCamReturn rawReProc_prepare (uint32_t sequence, rk_aiq_frame_info_t *offline_finfo) = 0;
     virtual void setRawStreamInfo(rk_aiq_rkrawstream_info_t *info) = 0;

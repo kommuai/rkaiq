@@ -372,6 +372,23 @@ rk_aiq_uapi2_sysctl_setExternalExposureInfo(const rk_aiq_sys_ctx_t* sys_ctx,
     return sys_ctx->_camHw->setExternalExposureInfo(sequence, *frame_info);
 }
 
+XCamReturn
+rk_aiq_uapi2_sysctl_setExternalExposureInfoV2(const rk_aiq_sys_ctx_t* sys_ctx,
+                                              uint32_t sequence,
+                                              float effective_gain,
+                                              uint32_t sensor_gain_code,
+                                              uint32_t integration_lines,
+                                              int high_conversion_gain)
+{
+    if (!sys_ctx || !sys_ctx->_camHw.ptr())
+        return XCAM_RETURN_ERROR_PARAM;
+
+    RKAIQ_API_SMART_LOCK(sys_ctx);
+    return sys_ctx->_camHw->setExternalExposureInfoV2(
+        sequence, effective_gain, sensor_gain_code, integration_lines,
+        high_conversion_gain != 0);
+}
+
 void rk_aiq_uapi2_sysctl_rawReproc_genIspParams (rk_aiq_sys_ctx_t* sys_ctx,
                                                  uint32_t sequence,
                                                  rk_aiq_frame_info_t *next_frm_info,

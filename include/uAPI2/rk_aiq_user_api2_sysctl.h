@@ -499,6 +499,21 @@ rk_aiq_uapi2_sysctl_setExternalExposureInfo(const rk_aiq_sys_ctx_t* sys_ctx,
                                             const rk_aiq_frame_info_t* frame_info);
 
 /**
+ * @brief Publish exposure owned by an external sensor controller for one frame.
+ *
+ * Unlike the legacy offline-raw API above, this contract keeps the effective
+ * gain used by ISP algorithms separate from the physical sensor gain code and
+ * explicitly carries the sensor conversion-gain state.
+ */
+XCamReturn
+rk_aiq_uapi2_sysctl_setExternalExposureInfoV2(const rk_aiq_sys_ctx_t* sys_ctx,
+                                              uint32_t sequence,
+                                              float effective_gain,
+                                              uint32_t sensor_gain_code,
+                                              uint32_t integration_lines,
+                                              int high_conversion_gain);
+
+/**
  * @brief generated isp params for offline raw
  *
  * @param sys_ctx

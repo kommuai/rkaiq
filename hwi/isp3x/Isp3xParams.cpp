@@ -597,7 +597,8 @@ void Isp3xParams::convertAiqTnrToIsp3xParams(struct isp3x_isp_params_cfg& isp_cf
         pBayertnr->sig1_x[i] = tnr.bay3d_sig1_x[i];
         pBayertnr->sig1_y[i] = tnr.bay3d_sig1_y[i];
 
-        //pBayertnr->sig2_x[i] = tnr.bay3d_sig1_x[i];
+        // BayerTNR V2 supplies one luma axis for both high and low sigma curves.
+        pBayertnr->sig2_x[i] = tnr.bay3d_sig1_x[i];
         pBayertnr->sig2_y[i] = tnr.bay3d_sig2_y[i];
     }
     LOGD_ANR("%s:%d exit!\n", __FUNCTION__, __LINE__);

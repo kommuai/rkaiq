@@ -63,6 +63,23 @@ CamHwBase::setExternalExposureInfo(uint32_t sequence,
 }
 
 XCamReturn
+CamHwBase::setExternalExposureInfoV2(uint32_t sequence,
+                                     float effective_gain,
+                                     uint32_t sensor_gain_code,
+                                     uint32_t integration_lines,
+                                     bool high_conversion_gain)
+{
+    SensorHw* sensor = mSensorDev.get_cast_ptr<SensorHw>();
+    if (!sensor)
+        return XCAM_RETURN_ERROR_PARAM;
+
+    return sensor->set_external_exposure_info_v2(sequence, effective_gain,
+                                                 sensor_gain_code,
+                                                 integration_lines,
+                                                 high_conversion_gain);
+}
+
+XCamReturn
 CamHwBase::prepare(uint32_t width, uint32_t height, int mode, int t_delay, int g_delay)
 {
     // TODO
