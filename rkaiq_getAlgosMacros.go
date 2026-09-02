@@ -1,9 +1,5 @@
 package rkaiqdefaults
 
-import (
-    "fmt"
-)
-
 func rkaiq_getAlgosMacros(macros_map map[string]bool) []string {
     var flag0 bool = false;
 
@@ -532,9 +528,5 @@ func rkaiq_getAlgosMacros(macros_map map[string]bool) []string {
         cflags = append(cflags, "-DRKAIQ_HAVE_DRC_V12_LITE=1")
         cflags = append(cflags, "-DRKAIQ_HAVE_DRC=1")
     }
-    for i, v := range cflags {
-        fmt.Printf("%d %s\n", i, v)
-    }
-    fmt.Printf("cflags size: %d\n", len(cflags))
     return cflags;
 }

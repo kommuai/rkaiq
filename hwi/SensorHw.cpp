@@ -1427,6 +1427,14 @@ SensorHw::set_working_mode(int mode)
     // requested mode is already active.
     xcam_mem_clear(current_cfg);
     int get_ret = io_control(RKMODULE_GET_HDR_CFG, &current_cfg);
+    const int get_errno = errno;
+    if (get_ret < 0 && get_errno == ENOTTY) {
+        // This sensor path is configured through the sensor-side controls and
+        // does not expose RKMODULE_HDR_CFG through V4L2. Do not turn an
+        // optional capability probe into a failed camera start.
+        _working_mode = mode;
+        return XCAM_RETURN_NO_ERROR;
+    }
     if (get_ret < 0 ||
             current_cfg.hdr_mode != hdr_mode) {
         int set_ret = io_control(RKMODULE_SET_HDR_CFG, &hdr_cfg);

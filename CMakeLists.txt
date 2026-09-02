@@ -1084,24 +1084,32 @@ cmake_policy(SET CMP0015 NEW)
 
 link_directories("${LIBRARY_OUTPUT_PATH}" "${OPENCV_LIBS_DIR}" "${GENMESH_LIBS_DIR}")
 
-add_library(rkaiq_tmp STATIC ${RK_AIQ_SRC})
-set_target_properties(rkaiq_tmp PROPERTIES FOLDER "rk_aiq")
-set_target_properties(rkaiq_tmp PROPERTIES CLEAN_DIRECT_OUTPUT 1)
-add_dependencies(rkaiq_tmp j2s_parser)
+# Compile the common source set once. The static archive is still generated
+# from the same objects below for the existing SDK packaging contract.
+add_library(rkaiq_objects OBJECT ${RK_AIQ_SRC})
+set_target_properties(rkaiq_objects PROPERTIES FOLDER "rk_aiq")
+set_target_properties(rkaiq_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+add_dependencies(rkaiq_objects j2s_parser)
 
 if (RKAIQ_BUILD_BINARY_IQ)
-    add_dependencies(rkaiq_tmp j2s4b)
+    add_dependencies(rkaiq_objects j2s4b)
 endif()
 
 if (RKAIQ_J2S4B_DEV)
-    add_dependencies(rkaiq_tmp j2s4b_dev)
+    add_dependencies(rkaiq_objects j2s4b_dev)
 endif()
 
-add_library(rkaiq SHARED ${RK_AIQ_SRC})
+add_library(rkaiq_tmp STATIC $<TARGET_OBJECTS:rkaiq_objects>)
+set_target_properties(rkaiq_tmp PROPERTIES FOLDER "rk_aiq")
+set_target_properties(rkaiq_tmp PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+add_dependencies(rkaiq_tmp rkaiq_objects)
+
+add_library(rkaiq SHARED $<TARGET_OBJECTS:rkaiq_objects>)
 set_target_properties(rkaiq PROPERTIES FOLDER "rk_aiq")
 set_target_properties(rkaiq PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 set_target_properties(rkaiq PROPERTIES C_VISIBILITY_PRESET default)
 set_target_properties(rkaiq PROPERTIES CXX_VISIBILITY_PRESET default)
+add_dependencies(rkaiq rkaiq_objects)
 
 target_link_libraries(rkaiq
 	PRIVATE

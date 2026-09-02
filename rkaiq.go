@@ -3,8 +3,6 @@ package rkaiqdefaults
 import (
 	"android/soong/android"
 	"android/soong/cc"
-    "fmt"   // required if we want to print usefull messages on the console
-    "os"
     "strings"
 )
 
@@ -19,10 +17,7 @@ type Ex_multilibType struct {
 
 func rkaiqFlags(ctx android.BaseContext) []string {
     var cflags []string
-    //fmt.Fprintf(os.Stderr, "%s\n", "deviceFlags called") //example prints
-    //fmt.Fprintf(os.Stderr, "%s\n", ctx.AConfig())
-    board := ctx.Config().Getenv("TARGET_BOARD_PLATFORM") //currently using this for reference but you can refer to README for other variables.
-    fmt.Fprintf(os.Stderr, ">>>>>>>>>>>>>>>>>>>>> %s\n", board)
+    board := ctx.Config().Getenv("TARGET_BOARD_PLATFORM")
     if board == "rv1126" {
        cflags = append(cflags, "-DISP_HW_V20")
     }
@@ -46,7 +41,6 @@ func rkaiqFlags(ctx android.BaseContext) []string {
 
 func rkaiq_get_aiq_version(ctx android.BaseContext) string {
     board := ctx.Config().Getenv("TARGET_BOARD_PLATFORM")
-    // fmt.Fprintf(os.Stderr, ">>>>>>>>>>>>>>>>>>>>> %s\n", board)
     return board;
 }
 
@@ -134,18 +128,15 @@ func rkaiqPrebuiltStaticLibrary (ctx android.LoadHookContext) {
     var prefix32 string = ""
     var srcs []string
     var module_name string = ctx.ModuleName()[9:] + ".a"
-    os := "android/"
+    baseDir := "android/"
     soc := rkaiq_get_aiq_version(ctx)
     soc +="/"
-    prefix64 = os + soc
-    prefix32 = os + soc
+    prefix64 = baseDir + soc
+    prefix32 = baseDir + soc
     prefix64 += "aarch64/clang/"
     prefix32 += "arm/clang/"
     p.Multilib.Lib32.Srcs = append(srcs, prefix32 + module_name)
     p.Multilib.Lib64.Srcs = append(srcs, prefix64 + module_name)
-    //fmt.Println("arch.arm.srcs:", p.Multilib.Lib32.Srcs)
-    //fmt.Println("arch.arm64.srcs:", p.Multilib.Lib64.Srcs)
-
     ctx.AppendProperties(p)
 }
 

@@ -41,6 +41,7 @@
 #include "isp3x/Isp3xParams.h"
 
 namespace RkCam {
+
 std::unordered_map<std::string, SmartPtr<rk_aiq_static_info_t>> CamHwIsp20::mCamHwInfos;
 std::unordered_map<std::string, SmartPtr<rk_sensor_full_info_t>> CamHwIsp20::mSensorHwInfos;
 std::unordered_map<std::string, std::string> CamHwIsp20::mFakeCameraName;
@@ -3007,14 +3008,6 @@ CamHwIsp20::start()
         }
     }
 
-    if (_linked_to_isp) {
-        ret = mIspCoreDev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
-        if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
-            LOGE_CAMHW_SUBM(ISP20HW_SUBM, "subscribe ISP frame-sync failed: %d\n", ret);
-            return ret;
-        }
-    }
-
     if (mIspStremEvtTh.ptr()) {
         ret = mIspStremEvtTh->start();
         if (ret < 0) {
@@ -3277,8 +3270,6 @@ XCamReturn CamHwIsp20::stop()
     if (lensHw)
         lensHw->stop();
 
-    if (_linked_to_isp)
-        mIspCoreDev->unsubscribe_event(V4L2_EVENT_FRAME_SYNC);
     ret = mIspCoreDev->stop();
     if (ret < 0) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM, "stop isp core dev err: %d\n", ret);

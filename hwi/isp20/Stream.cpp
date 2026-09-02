@@ -580,9 +580,10 @@ RKSofEventStream::start()
     // frame-sync subscription. The poll stream is still valid there and the
     // existing SOF path continues through the supported event source.
     ret = _subdev->subscribe_event(V4L2_EVENT_FRAME_SYNC);
-    if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
+    const int frame_sync_errno = errno;
+    if (ret < 0 && frame_sync_errno != EINVAL && frame_sync_errno != ENOTTY) {
         LOGE_CAMHW_SUBM(ISP20HW_SUBM,
-                        "subscribe frame-sync event failed: %d", ret);
+                        "subscribe frame-sync event failed: %d errno=%d", ret, frame_sync_errno);
         return ret;
     }
     if (_linked_to_1608) {
@@ -590,17 +591,18 @@ RKSofEventStream::start()
             ret = _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
             if (ret >= 0)
                 _is_subscribed.store(true);
-            else if (ret != -EINVAL && ret != -ENOTTY) {
+            else if (errno != EINVAL && errno != ENOTTY) {
                 LOGE_CAMHW_SUBM(ISP20HW_SUBM,
-                                "subscribe reset event failed: %d", ret);
+                                "subscribe reset event failed: %d errno=%d", ret, errno);
                 return ret;
             }
         }
     } else {
         ret = _subdev->subscribe_event(V4L2_EVENT_RESET_DEV);
-        if (ret < 0 && ret != -EINVAL && ret != -ENOTTY) {
+        const int reset_errno = errno;
+        if (ret < 0 && reset_errno != EINVAL && reset_errno != ENOTTY) {
             LOGE_CAMHW_SUBM(ISP20HW_SUBM,
-                            "subscribe reset event failed: %d", ret);
+                            "subscribe reset event failed: %d errno=%d", ret, reset_errno);
             return ret;
         }
     }

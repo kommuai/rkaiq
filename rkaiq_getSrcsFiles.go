@@ -1,9 +1,5 @@
 package rkaiqdefaults
 
-import (
-    // "fmt"
-)
-
 func rkaiq_getSrcsFiles(soc string, macros_map map[string]bool) []string {
 
     var flag0 bool = false;
@@ -345,7 +341,7 @@ func rkaiq_getSrcsFiles(soc string, macros_map map[string]bool) []string {
     }
 
     flag0 = macros_map["RKAIQ_HAVE_DPCC_V1"]
-    flag0 = macros_map["RKAIQ_HAVE_DPCC_V2"]
+    flag1 = macros_map["RKAIQ_HAVE_DPCC_V2"]
     if (flag0 || flag1) {
         srcs = append(srcs, "aiq_core/algo_handlers/RkAiqAdpccHandle.cpp")
     }
@@ -420,9 +416,5 @@ func rkaiq_getSrcsFiles(soc string, macros_map map[string]bool) []string {
         srcs = append(srcs, "hwi/isp20/FecParamStream.cpp")
         srcs = append(srcs, "hwi/isp20/TnrStreamProcUnit.cpp")
     }
-    // for i, v := range srcs {
-    //     fmt.Printf("%d %s\n", i, v)
-    // }
-    // fmt.Printf("macros_map size: %d\n", len(srcs))
     return srcs;
 }

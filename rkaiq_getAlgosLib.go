@@ -1,9 +1,5 @@
 package rkaiqdefaults
 
-import (
-    // "fmt"
-)
-
 func rkaiq_getAlgosLib(macros_map map[string]bool) []string {
 
     var flag0 bool = false;
@@ -52,7 +48,7 @@ func rkaiq_getAlgosLib(macros_map map[string]bool) []string {
     flag1 = macros_map["RKAIQ_HAVE_CAC_V10"]
     flag2 = macros_map["RKAIQ_HAVE_CAC_V11"]
     flag3 = macros_map["RKAIQ_HAVE_CAC_V12"]
-    if (flag0 || flag1 || flag2) {
+    if (flag0 || flag1 || flag2 || flag3) {
         static_lib = append(static_lib, "librkaiq_acac")
     }
     flag0 = macros_map["RKAIQ_HAVE_YNR_V1"]
@@ -117,8 +113,8 @@ func rkaiq_getAlgosLib(macros_map map[string]bool) []string {
     if (flag0 || flag1) {
         static_lib = append(static_lib, "librkaiq_asharp_v33")
     }
-    flag1 = macros_map["RKAIQ_HAVE_SHARP_V34"]
-    if (flag0 || flag1) {
+    flag0 = macros_map["RKAIQ_HAVE_SHARP_V34"]
+    if flag0 {
         static_lib = append(static_lib, "librkaiq_asharp_v34")
     }
     flag0 = macros_map["RKAIQ_HAVE_MFNR_V1"]
@@ -319,10 +315,5 @@ func rkaiq_getAlgosLib(macros_map map[string]bool) []string {
         static_lib = append(static_lib, "librkaiq_thirdaf")
     }
 
-    // for i, v := range static_lib {
-    //     fmt.Printf("%d %s\n", i, v)
-    // }
-
-    // fmt.Printf("static_lib size: %d\n", len(static_lib))
     return static_lib;
 }
