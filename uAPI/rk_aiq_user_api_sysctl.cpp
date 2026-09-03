@@ -141,6 +141,7 @@ typedef struct rk_aiq_sys_preinit_cfg_s {
     rk_aiq_hwevt_cb hwevt_cb;
     void* hwevt_cb_ctx;
     void* calib_proj;
+    const rk_aiq_ka2_calib_view_t* ka2_calib;
     rk_aiq_sys_preinit_cfg_s() {
         mode = RK_AIQ_WORKING_MODE_NORMAL;
         force_iq_file = "";
@@ -149,6 +150,7 @@ typedef struct rk_aiq_sys_preinit_cfg_s {
         hwevt_cb = NULL;
         hwevt_cb_ctx = NULL;
         calib_proj = NULL;
+        ka2_calib = NULL;
         iq_buffer.addr = NULL;
         iq_buffer.len = 0;
         rawstream_info.mode = RK_ISP_RKRAWSTREAM_MODE_INVALID;
@@ -322,6 +324,7 @@ rk_aiq_uapi_sysctl_init(const char* sns_ent_name,
     int  lock_res = 0;
     std::map<std::string, rk_aiq_sys_preinit_cfg_t>::iterator it;
     void* calib_proj = NULL;
+    const rk_aiq_ka2_calib_view_t* ka2_calib = NULL;
     rk_aiq_rtt_share_info_t* rtt_share = NULL;
 
     XCAM_ASSERT(sns_ent_name);
@@ -477,7 +480,12 @@ rk_aiq_uapi_sysctl_init(const char* sns_ent_name,
             ctx->_rkAiqManager->setHwEvtCb(it->second.hwevt_cb, it->second.hwevt_cb_ctx);
             if (!it->second.dev_buf_cnt_map.empty())
                 ctx->_camHw->setDevBufCnt(it->second.dev_buf_cnt_map);
-            if (it->second.iq_buffer.addr && it->second.iq_buffer.len > 0) {
+            if (it->second.ka2_calib) {
+                ka2_calib = it->second.ka2_calib;
+                user_spec_iq = true;
+                LOGI("use typed KA2 calibration profile");
+            }
+            else if (it->second.iq_buffer.addr && it->second.iq_buffer.len > 0) {
                 iq_buffer.addr = it->second.iq_buffer.addr;
                 iq_buffer.len = it->second.iq_buffer.len;
                 user_spec_iq = true;
@@ -587,10 +595,15 @@ rk_aiq_uapi_sysctl_init(const char* sns_ent_name,
     CamCalibDbV2Context_t calibdbv2_ctx;
     xcam_mem_clear(calibdbv2_ctx);
 
+    ctx->_calibDbProjOwned = false;
     if (calib_proj)
         ctx->_calibDbProj = (CamCalibDbProj_t*)calib_proj;
     else if (iq_buffer.addr && iq_buffer.len > 0)
         ctx->_calibDbProj = RkAiqCalibDbV2::createCalibDbProj(iq_buffer.addr, iq_buffer.len);
+    else if (ka2_calib) {
+        ctx->_calibDbProj = RkAiqCalibDbV2::createCalibDbProj(ka2_calib);
+        ctx->_calibDbProjOwned = true;
+    }
     else
         ctx->_calibDbProj = RkAiqCalibDbV2::createCalibDbProj(config_file);
     if (!ctx->_calibDbProj)
@@ -700,7 +713,10 @@ rk_aiq_uapi_sysctl_deinit_locked(rk_aiq_sys_ctx_t* ctx)
     ctx->_rkAiqManager.release();
     ctx->_camHw.release();
     if (ctx->_calibDbProj) {
-        // TODO:public common resource release
+        if (ctx->_calibDbProjOwned)
+            RkAiqCalibDbV2::CamCalibDbProjFree(ctx->_calibDbProj);
+        ctx->_calibDbProj = NULL;
+        ctx->_calibDbProjOwned = false;
     }
 
     if (ctx->_lock_file) {

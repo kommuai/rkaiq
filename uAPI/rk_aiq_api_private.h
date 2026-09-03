@@ -41,6 +41,7 @@ typedef struct rk_aiq_sys_ctx_s {
     SocketServer *  _socket;
     SmartPtr<Mutex> _apiMutex;
     CamCalibDbProj_t* _calibDbProj;
+    bool _calibDbProjOwned;
 
     rk_aiq_ctx_type_e ctx_type;
     rk_aiq_sys_ctx_t* next_ctx;

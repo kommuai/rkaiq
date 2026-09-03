@@ -34,6 +34,7 @@
 #include "rkpostisp_head_v1.h"
 #include "xcam_log.h"
 #include "xcam_mutex.h"
+#include "uAPI2/rk_aiq_user_api2_ka2_calib.h"
 
 struct cJSON;
 
@@ -80,6 +81,7 @@ public:
 public:
     static CamCalibDbProj_t *createCalibDbProj(const char *jsfile);
     static CamCalibDbProj_t *createCalibDbProj(const void *bin_buff, size_t len);
+    static CamCalibDbProj_t *createCalibDbProj(const rk_aiq_ka2_calib_view_t *calib);
     static CamCalibDbCamgroup_t* createCalibDbCamgroup(const char *jsfile);
     static int CamCalibDbCamgroupFree(CamCalibDbCamgroup_t* calib_camgroup);
 

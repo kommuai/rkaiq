@@ -60,6 +60,21 @@ rk_aiq_uapi2_sysctl_preInit_iq_addr(const char* sns_ent_name, void *addr, size_t
 }
 
 XCamReturn
+rk_aiq_uapi2_sysctl_preInit_ka2_calib(
+    const char* sns_ent_name, const rk_aiq_ka2_calib_view_t* calib)
+{
+    if (!sns_ent_name || !calib || calib->version != RK_AIQ_KA2_CALIB_VERSION)
+        return XCAM_RETURN_ERROR_PARAM;
+
+    g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].ka2_calib = calib;
+    g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].force_iq_file.clear();
+    g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].iq_buffer.addr = NULL;
+    g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].iq_buffer.len = 0;
+    g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].calib_proj = NULL;
+    return XCAM_RETURN_NO_ERROR;
+}
+
+XCamReturn
 rk_aiq_uapi2_sysctl_preInit_calibproj(const char* sns_ent_name, void *addr)
 {
     g_rk_aiq_sys_preinit_cfg_map[sns_ent_name].calib_proj = addr;

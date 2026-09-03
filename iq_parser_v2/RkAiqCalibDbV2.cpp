@@ -16,6 +16,8 @@
 #include "RkAiqCalibDbV2.h"
 
 #include <fstream>
+#include <algorithm>
+#include <cstring>
 #include <sys/stat.h>
 
 #include "RkAiqCalibDbV2Helper.h"
@@ -647,6 +649,190 @@ CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(const void *bin_buff,
 
     XCAM_LOG_ERROR("parse binary iq buffer failed.");
     return nullptr;
+}
+
+namespace {
+
+char* calib_dup_string(const char* value) {
+    if (!value) return nullptr;
+    const size_t len = strlen(value) + 1;
+    char* copy = static_cast<char*>(malloc(len));
+    if (copy) memcpy(copy, value, len);
+    return copy;
+}
+
+bool calib_copy_string(char* dst, size_t dst_len, const char* value) {
+    if (!dst || !dst_len || !value) return false;
+    const int written = snprintf(dst, dst_len, "%s", value);
+    return written >= 0 && static_cast<size_t>(written) < dst_len;
+}
+
+template <typename T>
+bool calib_copy_array(T*& dst, const T* src, size_t len) {
+    if (!src || !len) return len == 0;
+    dst = static_cast<T*>(malloc(sizeof(T) * len));
+    if (!dst) return false;
+    memcpy(dst, src, sizeof(T) * len);
+    return true;
+}
+
+}  // namespace
+
+CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(
+    const rk_aiq_ka2_calib_view_t *calib) {
+#if !defined(ISP_HW_V30)
+    (void)calib;
+    return nullptr;
+#else
+    if (!calib || calib->version != RK_AIQ_KA2_CALIB_VERSION ||
+            !calib->gamma_curve || calib->gamma_curve_len != CALIBDB_AGAMMA_KNOTS_NUM_V11 ||
+            !calib->disable_algos || !calib->disable_algos_len ||
+            !calib->ccm_rgb2y || calib->ccm_rgb2y_len != 3 ||
+            !calib->ccm_gain || !calib->ccm_scale ||
+            calib->ccm_gain_scale_len != CALIBDB_ISO_NUM ||
+            !calib->ccm_default_illu) {
+        XCAM_LOG_ERROR("invalid typed KA2 calibration view");
+        return nullptr;
+    }
+    if (calib->has_lsc &&
+            (!calib->lsc_sector_x || !calib->lsc_sector_y || calib->lsc_sector_len != LSC_SIZE_TBL_SIZE ||
+             !calib->lsc_resolution || !calib->lsc_illumination || !calib->lsc_table_used ||
+             !calib->lsc_table ||
+             !calib->lsc_gains || calib->lsc_gains_len != 4 || !calib->lsc_vig || calib->lsc_vig_len != 4 ||
+             !calib->lsc_red || !calib->lsc_green_r || !calib->lsc_green_b || !calib->lsc_blue ||
+             calib->lsc_mesh_len != 17 * 17)) {
+        XCAM_LOG_ERROR("invalid typed KA2 LSC view");
+        return nullptr;
+    }
+
+    CamCalibDbProj_t* project = CamCalibDbProjAlloc();
+    CamCalibDbV2ContextIsp30_t* scene = nullptr;
+    if (!project) return nullptr;
+
+    project->main_scene = static_cast<CamCalibMainSceneList_t*>(calloc(1, sizeof(*project->main_scene)));
+    if (!project->main_scene) goto error;
+    project->main_scene_len = 1;
+    project->main_scene[0].name = calib_dup_string("normal");
+    if (!project->main_scene[0].name) goto error;
+    project->main_scene[0].sub_scene = static_cast<CamCalibSubSceneList_t*>(
+        calloc(1, sizeof(*project->main_scene[0].sub_scene)));
+    if (!project->main_scene[0].sub_scene) goto error;
+    project->main_scene[0].sub_scene_len = 1;
+    project->main_scene[0].sub_scene[0].name = calib_dup_string("day");
+    if (!project->main_scene[0].sub_scene[0].name) goto error;
+
+    project->sensor_calib.CISDcgSet.Linear.support_en = false;
+    project->sensor_calib.CISDcgSet.Linear.dcg_optype = calib->dcg_op_mode;
+    project->sensor_calib.CISDcgSet.Linear.dcg_ratio = calib->dcg_ratio;
+    project->sensor_calib.CISDcgSet.Linear.sync_switch = false;
+    project->sensor_calib.CISDcgSet.Linear.lcg2hcg_gain_th = calib->lcg2hcg_gain_th;
+    project->sensor_calib.CISDcgSet.Linear.hcg2lcg_gain_th = calib->hcg2lcg_gain_th;
+    memcpy(project->sensor_calib.CISDcgSet.Linear.dcg_mode.Coeff, calib->dcg_coeff,
+           sizeof(project->sensor_calib.CISDcgSet.Linear.dcg_mode.Coeff));
+    project->sensor_calib.CISDcgSet.Hdr = project->sensor_calib.CISDcgSet.Linear;
+    project->sensor_calib.CISExpUpdate.Linear.time_update = calib->exp_update[0];
+    project->sensor_calib.CISExpUpdate.Linear.gain_update = calib->exp_update[1];
+    project->sensor_calib.CISExpUpdate.Linear.dcg_update = calib->exp_update[2];
+    project->sensor_calib.CISExpUpdate.Hdr = project->sensor_calib.CISExpUpdate.Linear;
+    project->sensor_calib.CISFlip = calib->sensor_flip;
+
+    scene = &project->main_scene[0].sub_scene[0].scene_isp30;
+    scene->ccm_calib.control.enable = calib->ccm_enable != 0;
+    scene->ccm_calib.control.wbgain_tolerance = calib->ccm_wbgain_tolerance;
+    scene->ccm_calib.control.gain_tolerance = calib->ccm_gain_tolerance;
+    memcpy(scene->ccm_calib.lumaCCM.rgb2y_para, calib->ccm_rgb2y,
+           sizeof(scene->ccm_calib.lumaCCM.rgb2y_para));
+    scene->ccm_calib.lumaCCM.low_bound_pos_bit = calib->ccm_low_bound_pos_bit;
+    for (int i = 0; i < CCM_YALP_ISO_STEP_MAX; ++i) {
+        scene->ccm_calib.lumaCCM.gain_yalp_curve[i].iso =
+            calib->ccm_gain[static_cast<uint32_t>(i) < calib->ccm_gain_scale_len ?
+                static_cast<uint32_t>(i) : calib->ccm_gain_scale_len - 1];
+        const size_t copy_len = std::min<size_t>(calib->ccm_y_alpha_curve_len, CCM_CURVE_DOT_NUM);
+        if (calib->ccm_y_alpha_curve && copy_len)
+            memcpy(scene->ccm_calib.lumaCCM.gain_yalp_curve[i].y_alpha_curve,
+                   calib->ccm_y_alpha_curve, sizeof(float) * copy_len);
+    }
+    memcpy(scene->ccm_calib.lumaCCM.gain_alphaScale_curve.gain, calib->ccm_gain,
+           sizeof(scene->ccm_calib.lumaCCM.gain_alphaScale_curve.gain));
+    memcpy(scene->ccm_calib.lumaCCM.gain_alphaScale_curve.scale, calib->ccm_scale,
+           sizeof(scene->ccm_calib.lumaCCM.gain_alphaScale_curve.scale));
+    scene->ccm_calib.TuningPara.damp_enable = calib->ccm_damp_enable != 0;
+    scene->ccm_calib.TuningPara.illu_estim.interp_enable = calib->ccm_interp_enable != 0;
+    scene->ccm_calib.TuningPara.illu_estim.default_illu = calib_dup_string(calib->ccm_default_illu);
+    if (!scene->ccm_calib.TuningPara.illu_estim.default_illu) goto error;
+    memcpy(scene->ccm_calib.TuningPara.illu_estim.weightRB, calib->ccm_weight_rb,
+           sizeof(scene->ccm_calib.TuningPara.illu_estim.weightRB));
+    scene->ccm_calib.TuningPara.illu_estim.prob_limit = calib->ccm_prob_limit;
+    scene->ccm_calib.TuningPara.illu_estim.frame_no = calib->ccm_frame_no;
+
+    scene->agamma_calib_v11.GammaTuningPara.Gamma_en = calib->gamma_enable != 0;
+    scene->agamma_calib_v11.GammaTuningPara.Gamma_out_offset = calib->gamma_out_offset;
+    memcpy(scene->agamma_calib_v11.GammaTuningPara.Gamma_curve, calib->gamma_curve,
+           sizeof(scene->agamma_calib_v11.GammaTuningPara.Gamma_curve));
+    scene->csm.TuningPara.op_mode = RK_AIQ_OP_MODE_AUTO;
+    scene->csm.TuningPara.full_range = true;
+
+    if (calib->has_lsc) {
+        scene->lsc_v2.common.enable = true;
+        scene->lsc_v2.common.resolutionAll = static_cast<CalibDbV2_Lsc_Resolution_t*>(
+            calloc(1, sizeof(*scene->lsc_v2.common.resolutionAll)));
+        scene->lsc_v2.common.resolutionAll_len = 1;
+        scene->lsc_v2.alscCoef.illAll = static_cast<CalibDbV2_AlscCof_ill_t*>(
+            calloc(1, sizeof(*scene->lsc_v2.alscCoef.illAll)));
+        scene->lsc_v2.alscCoef.illAll_len = 1;
+        scene->lsc_v2.tbl.tableAll = static_cast<CalibDbV2_LscTableProfile_t*>(
+            calloc(1, sizeof(*scene->lsc_v2.tbl.tableAll)));
+        scene->lsc_v2.tbl.tableAll_len = 1;
+        if (!scene->lsc_v2.common.resolutionAll || !scene->lsc_v2.alscCoef.illAll ||
+                !scene->lsc_v2.tbl.tableAll) goto error;
+
+        CalibDbV2_Lsc_Resolution_t* resolution = scene->lsc_v2.common.resolutionAll;
+        if (!calib_copy_string(resolution->name, sizeof(resolution->name), calib->lsc_resolution)) goto error;
+        memcpy(resolution->lsc_sect_size_x, calib->lsc_sector_x, sizeof(resolution->lsc_sect_size_x));
+        memcpy(resolution->lsc_sect_size_y, calib->lsc_sector_y, sizeof(resolution->lsc_sect_size_y));
+
+        CalibDbV2_AlscCof_ill_t* illumination = scene->lsc_v2.alscCoef.illAll;
+        scene->lsc_v2.alscCoef.damp_enable = true;
+        illumination->usedForCase = 0;
+        if (!calib_copy_string(illumination->name, sizeof(illumination->name), calib->lsc_illumination)) goto error;
+        memcpy(illumination->wbGain, calib->lsc_wb_gain, sizeof(illumination->wbGain));
+        illumination->tableUsed = static_cast<lsc_name_t*>(calloc(1, sizeof(*illumination->tableUsed)));
+        if (!illumination->tableUsed) goto error;
+        illumination->tableUsed_len = 1;
+        if (!calib_copy_string(illumination->tableUsed[0].name,
+                               sizeof(illumination->tableUsed[0].name), calib->lsc_table_used)) goto error;
+        if (!calib_copy_array(illumination->gains, calib->lsc_gains, calib->lsc_gains_len) ||
+                !calib_copy_array(illumination->vig, calib->lsc_vig, calib->lsc_vig_len)) goto error;
+        illumination->gains_len = calib->lsc_gains_len;
+        illumination->vig_len = calib->lsc_vig_len;
+
+        CalibDbV2_LscTableProfile_t* table = scene->lsc_v2.tbl.tableAll;
+        if (!calib_copy_string(table->name, sizeof(table->name), calib->lsc_table) ||
+                !calib_copy_string(table->resolution, sizeof(table->resolution), calib->lsc_resolution) ||
+                !calib_copy_string(table->illumination, sizeof(table->illumination), calib->lsc_illumination)) goto error;
+        table->vignetting = 100.0f;
+        memcpy(table->lsc_samples_red.uCoeff, calib->lsc_red, sizeof(table->lsc_samples_red.uCoeff));
+        memcpy(table->lsc_samples_greenR.uCoeff, calib->lsc_green_r, sizeof(table->lsc_samples_greenR.uCoeff));
+        memcpy(table->lsc_samples_greenB.uCoeff, calib->lsc_green_b, sizeof(table->lsc_samples_greenB.uCoeff));
+        memcpy(table->lsc_samples_blue.uCoeff, calib->lsc_blue, sizeof(table->lsc_samples_blue.uCoeff));
+    }
+
+    project->sys_static_cfg.algoSwitch.enable = true;
+    project->sys_static_cfg.algoSwitch.disable_algos = static_cast<DisableAlgoType_t*>(
+        calloc(calib->disable_algos_len, sizeof(DisableAlgoType_t)));
+    if (!project->sys_static_cfg.algoSwitch.disable_algos) goto error;
+    for (uint32_t i = 0; i < calib->disable_algos_len; ++i) {
+        if (calib->disable_algos[i] > DISABLE_AFD) goto error;
+        project->sys_static_cfg.algoSwitch.disable_algos[i] =
+            static_cast<DisableAlgoType_t>(calib->disable_algos[i]);
+    }
+    project->sys_static_cfg.algoSwitch.disable_algos_len = calib->disable_algos_len;
+    return project;
+
+error:
+    CamCalibDbProjFree(project);
+    return nullptr;
+#endif
 }
 
 void RkAiqCalibDbV2::releaseCalibDbProj() {

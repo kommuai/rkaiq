@@ -22,6 +22,7 @@
 #include "rk_aiq_algo_des.h"
 #include "rk_aiq_offline_raw.h"
 #include "anr/rkpostisp.h"
+#include "uAPI2/rk_aiq_user_api2_ka2_calib.h"
 // #include "rk_aiq_user_api_sysctl.h"
 
 RKAIQ_BEGIN_DECLARE
@@ -54,6 +55,11 @@ XCamReturn
 rk_aiq_uapi2_sysctl_preInit(const char* sns_ent_name,
                            rk_aiq_working_mode_t mode,
                            const char* force_iq_file);
+
+XCamReturn
+rk_aiq_uapi2_sysctl_preInit_ka2_calib(
+    const char* sns_ent_name,
+    const rk_aiq_ka2_calib_view_t* calib);
 
 XCamReturn
 rk_aiq_uapi2_sysctl_regHwEvtCb(const char* sns_ent_name,
