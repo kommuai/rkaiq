@@ -693,12 +693,16 @@ SensorHw::setExposureParams(SmartPtr<RkAiqExpParamsProxy>& expPar)
             }
         }
         if (!exp->exp_i2c_params.bValid) {
-            _is_i2c_exp = false;
-            if (_working_mode == RK_AIQ_WORKING_MODE_NORMAL)
-                setLinearSensorExposure(&exp->new_ae_exp);
-            else
-                setHdrSensorExposure(&exp->new_ae_exp);
-            setSensorDpcc(&exp->SensorDpccInfo);
+            /* Keep explicit-I2C mode once the custom AE path has selected it.
+             * Stock AE still runs for statistics and lifecycle management, but
+             * its metadata-only result must not switch the sensor back to V4L2. */
+            if (!_is_i2c_exp) {
+                if (_working_mode == RK_AIQ_WORKING_MODE_NORMAL)
+                    setLinearSensorExposure(&exp->new_ae_exp);
+                else
+                    setHdrSensorExposure(&exp->new_ae_exp);
+                setSensorDpcc(&exp->SensorDpccInfo);
+            }
         } else {
             _is_i2c_exp = true;
             pending_split_exps_t new_exps;
@@ -710,7 +714,9 @@ SensorHw::setExposureParams(SmartPtr<RkAiqExpParamsProxy>& expPar)
                 new_exps.i2c_exp_res.AddrByteNum[i] = exp->exp_i2c_params.AddrByteNum[i];
                 new_exps.i2c_exp_res.ValueByteNum[i] = exp->exp_i2c_params.ValueByteNum[i];
             }
-            setI2cDAta(&new_exps);
+            XCamReturn ret = setI2cDAta(&new_exps);
+            if (ret != XCAM_RETURN_NO_ERROR)
+                return ret;
         }
 
         SmartPtr<RkAiqSensorExpParamsProxy> expParamsProxy = NULL;
@@ -722,7 +728,8 @@ SensorHw::setExposureParams(SmartPtr<RkAiqExpParamsProxy>& expPar)
         }
         expParamsProxy->data()->aecExpInfo = exp->new_ae_exp;
         expParamsProxy->data()->SensorDpccInfo = exp->SensorDpccInfo;
-        expParamsProxy->data()->exp_i2c_params = &exp->exp_i2c_params ;
+        expParamsProxy->data()->exp_i2c_params_storage = exp->exp_i2c_params;
+        expParamsProxy->data()->exp_i2c_params = &expParamsProxy->data()->exp_i2c_params_storage;
         _effecting_exp_map[0] = expParamsProxy;
         _first = false;
         _last_exp_time = expParamsProxy;
@@ -732,6 +739,8 @@ SensorHw::setExposureParams(SmartPtr<RkAiqExpParamsProxy>& expPar)
         exp->ae_proc_res_rk.exp_set_cnt = 0;
         LOGD_CAMHW_SUBM(SENSOR_SUBM, "exp-sync: first set exp, add id[0] to the effected exp map\n");
     } else {
+        if (exp->exp_i2c_params.bValid)
+            _is_i2c_exp = true;
         if (exp->algo_id == 0) {
             if (exp->ae_proc_res_rk.exp_set_cnt > 0) {
                 SmartPtr<RkAiqSensorExpParamsProxy> expParamsProxy = NULL;
@@ -765,7 +774,8 @@ SensorHw::setExposureParams(SmartPtr<RkAiqExpParamsProxy>& expPar)
                     tmp->aecExpInfo.frame_length_lines = exp->ae_proc_res_rk.exp_set_tbl[i].frame_length_lines;
                     tmp->aecExpInfo.CISFeature.SNR = exp->ae_proc_res_rk.exp_set_tbl[i].CISFeature.SNR;
                     tmp->SensorDpccInfo = exp->SensorDpccInfo;
-                    tmp->exp_i2c_params = &exp->exp_i2c_params;
+                    tmp->exp_i2c_params_storage = exp->exp_i2c_params;
+                    tmp->exp_i2c_params = &tmp->exp_i2c_params_storage;
 
                     /* set a flag when it's fisrt elem of exp-table*/
                     _exp_list.push_back(std::make_pair(expParamsProxy, (i == 0 ? true : false)));
@@ -1285,7 +1295,7 @@ SensorHw::handle_sof_internal(int64_t time, uint32_t frameid)
                     ret = setHdrSensorExposure(&pending_exp);
                 }
             } else {
-                setI2cDAta(&pending_exp);
+                ret = setI2cDAta(&pending_exp);
             }
             it_end = it;
             it_end++;

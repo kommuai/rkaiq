@@ -42,10 +42,12 @@ typedef struct RKAiqAecExpInfoWrapper_s {
 typedef struct RKAiqSensorExpInfo_t: public XCam::BufferData {
     RKAiqSensorExpInfo_t () {
         memset(&aecExpInfo, 0, sizeof(aecExpInfo));
-        exp_i2c_params = NULL;
+        memset(&exp_i2c_params_storage, 0, sizeof(exp_i2c_params_storage));
+        exp_i2c_params = &exp_i2c_params_storage;
     }
     rk_aiq_exposure_params_t aecExpInfo;
     Sensor_dpcc_res_t SensorDpccInfo;
+    RKAiqExpI2cParam_t exp_i2c_params_storage;
     RKAiqExpI2cParam_t* exp_i2c_params;
 } RKAiqSensorExpInfo_t;
 

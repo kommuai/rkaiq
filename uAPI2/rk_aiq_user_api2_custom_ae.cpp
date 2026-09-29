@@ -849,7 +849,8 @@ static void initCustomAeRes(rk_aiq_customeAe_results_t* customAe, rk_aiq_rkAe_co
         customAe->exp_i2c_params.bValid = false;
     }
 
-    customAe->frame_length_lines = pConfig->PixelPeriodsPerLine;
+    // This field is expressed in sensor lines, not pixels per line.
+    customAe->frame_length_lines = pConfig->LinePeriodsPerField;
     customAe->is_longfrm_mode = false;
 
     //1.) hw params
@@ -1574,8 +1575,9 @@ rk_aiq_uapi2_customAE_enable(const rk_aiq_sys_ctx_t* ctx, bool enable)
     }
 
 #if 0
-    // now rk and custom ae are running concurrently,
-    // because other algos will depend on results of rk ae
+    // The custom handler is a child of the AE parent. Keep the parent enabled:
+    // it owns the shared AE result/ISP-parameter lifecycle, while the custom
+    // handler supplies the exposure policy and sensor result.
     if (enable)
         ret = rk_aiq_uapi_sysctl_enableAxlib(ctx,
                                              desc->common.type,

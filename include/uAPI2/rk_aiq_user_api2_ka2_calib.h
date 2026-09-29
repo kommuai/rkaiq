@@ -15,7 +15,36 @@
 
 RKAIQ_BEGIN_DECLARE
 
-#define RK_AIQ_KA2_CALIB_VERSION 1U
+#define RK_AIQ_KA2_CALIB_VERSION 2U
+
+#define RK_AIQ_KA2_BAYER2DNR_ISO_COUNT 13U
+#define RK_AIQ_KA2_BAYER2DNR_LUMA_COUNT 16U
+
+typedef struct rk_aiq_ka2_bayer2dnr_setting_s {
+    const char *snr_mode;
+    const char *sensor_mode;
+    const float *iso;
+    const int32_t *sigma;
+    const float *filter_strength;
+    const float *edgesofts;
+    const float *ratio;
+    const float *weight;
+    const int32_t *gauss_guide;
+    const int32_t *pix_diff;
+    const int32_t *diff_thld;
+    const float *hdr_dgain_scale_s;
+    const float *hdr_dgain_scale_m;
+} rk_aiq_ka2_bayer2dnr_setting_t;
+
+typedef struct rk_aiq_ka2_bayer2dnr_view_s {
+    uint8_t enable;
+    uint8_t hdrdgain_ctrl_en;
+    uint8_t reserved[2];
+    const int32_t *lumapoint;
+    uint32_t iso_count;
+    const rk_aiq_ka2_bayer2dnr_setting_t *settings;
+    uint32_t setting_count;
+} rk_aiq_ka2_bayer2dnr_view_t;
 
 typedef struct rk_aiq_ka2_calib_view_s {
     uint32_t version;
@@ -74,6 +103,8 @@ typedef struct rk_aiq_ka2_calib_view_s {
     const uint16_t *lsc_green_b;
     const uint16_t *lsc_blue;
     uint32_t lsc_mesh_len;
+
+    const rk_aiq_ka2_bayer2dnr_view_t *bayer2dnr;
 } rk_aiq_ka2_calib_view_t;
 
 XCamReturn rk_aiq_uapi2_sysctl_preInit_ka2_calib(

@@ -676,6 +676,209 @@ bool calib_copy_array(T*& dst, const T* src, size_t len) {
     return true;
 }
 
+bool populate_ka2_bayer2dnr(CalibDbV2_Bayer2dnrV2_t* dst,
+                            const rk_aiq_ka2_bayer2dnr_view_t* src) {
+    if (!dst || !src || !src->lumapoint || !src->settings ||
+            src->iso_count != RK_AIQ_KA2_BAYER2DNR_ISO_COUNT ||
+            !src->setting_count || src->setting_count > 2) return false;
+
+    dst->Version = calib_dup_string("V2");
+    if (!dst->Version) return false;
+    dst->TuningPara.enable = src->enable != 0;
+    dst->TuningPara.hdrdgain_ctrl_en = src->hdrdgain_ctrl_en != 0;
+    dst->CalibPara.Setting_len = static_cast<int>(src->setting_count);
+    dst->TuningPara.Setting_len = static_cast<int>(src->setting_count);
+    dst->CalibPara.Setting = static_cast<CalibDbV2_Bayer2dnrV2_C_Set_t*>(
+        calloc(src->setting_count, sizeof(*dst->CalibPara.Setting)));
+    dst->TuningPara.Setting = static_cast<CalibDbV2_Bayer2dnrV2_T_Set_t*>(
+        calloc(src->setting_count, sizeof(*dst->TuningPara.Setting)));
+    if (!dst->CalibPara.Setting || !dst->TuningPara.Setting) return false;
+
+    for (uint32_t setting_idx = 0; setting_idx < src->setting_count; ++setting_idx) {
+        const rk_aiq_ka2_bayer2dnr_setting_t& input = src->settings[setting_idx];
+        if (!input.snr_mode || !input.sensor_mode || !input.iso || !input.sigma ||
+                !input.filter_strength || !input.edgesofts || !input.ratio ||
+                !input.weight || !input.gauss_guide || !input.pix_diff ||
+                !input.diff_thld || !input.hdr_dgain_scale_s ||
+                !input.hdr_dgain_scale_m) return false;
+
+        auto& calib_setting = dst->CalibPara.Setting[setting_idx];
+        auto& tuning_setting = dst->TuningPara.Setting[setting_idx];
+        calib_setting.SNR_Mode = calib_dup_string(input.snr_mode);
+        calib_setting.Sensor_Mode = calib_dup_string(input.sensor_mode);
+        tuning_setting.SNR_Mode = calib_dup_string(input.snr_mode);
+        tuning_setting.Sensor_Mode = calib_dup_string(input.sensor_mode);
+        if (!calib_setting.SNR_Mode || !calib_setting.Sensor_Mode ||
+                !tuning_setting.SNR_Mode || !tuning_setting.Sensor_Mode) return false;
+
+        calib_setting.Calib_ISO_len = static_cast<int>(src->iso_count);
+        tuning_setting.Tuning_ISO_len = static_cast<int>(src->iso_count);
+        calib_setting.Calib_ISO = static_cast<CalibDbV2_Bayer2dnrV2_C_ISO_t*>(
+            calloc(src->iso_count, sizeof(*calib_setting.Calib_ISO)));
+        tuning_setting.Tuning_ISO = static_cast<CalibDbV2_Bayer2dnrV2_T_ISO_t*>(
+            calloc(src->iso_count, sizeof(*tuning_setting.Tuning_ISO)));
+        if (!calib_setting.Calib_ISO || !tuning_setting.Tuning_ISO) return false;
+
+        for (uint32_t iso_idx = 0; iso_idx < src->iso_count; ++iso_idx) {
+            auto& calib_iso = calib_setting.Calib_ISO[iso_idx];
+            auto& tuning_iso = tuning_setting.Tuning_ISO[iso_idx];
+            calib_iso.iso = input.iso[iso_idx];
+            memcpy(calib_iso.lumapoint, src->lumapoint,
+                   sizeof(calib_iso.lumapoint));
+            memcpy(calib_iso.sigma,
+                   input.sigma + iso_idx * RK_AIQ_KA2_BAYER2DNR_LUMA_COUNT,
+                   sizeof(calib_iso.sigma));
+            tuning_iso.iso = input.iso[iso_idx];
+            tuning_iso.gauss_guide = input.gauss_guide[iso_idx] != 0;
+            tuning_iso.filter_strength = input.filter_strength[iso_idx];
+            tuning_iso.edgesofts = input.edgesofts[iso_idx];
+            tuning_iso.ratio = input.ratio[iso_idx];
+            tuning_iso.weight = input.weight[iso_idx];
+            tuning_iso.pix_diff = input.pix_diff[iso_idx];
+            tuning_iso.diff_thld = input.diff_thld[iso_idx];
+            tuning_iso.hdr_dgain_scale_s = input.hdr_dgain_scale_s[iso_idx];
+            tuning_iso.hdr_dgain_scale_m = input.hdr_dgain_scale_m[iso_idx];
+        }
+    }
+    return true;
+}
+
+bool populate_ka2_sensor_calibration(CalibDb_Sensor_ParaV2_t* sensor) {
+    if (!sensor) return false;
+
+    sensor->resolution.width = 1920;
+    sensor->resolution.height = 1200;
+    sensor->Gain2Reg.GainMode = EXPGAIN_MODE_LINEAR;
+    static constexpr float kGainRange[] = {1.0f, 248.0f, 16.0f, 0.0f, 1.0f, 16.0f, 3968.0f};
+    sensor->Gain2Reg.GainRange_len = sizeof(kGainRange) / sizeof(kGainRange[0]);
+    if (!calib_copy_array(sensor->Gain2Reg.GainRange, kGainRange,
+                          sensor->Gain2Reg.GainRange_len)) return false;
+
+    sensor->Time2Reg.fCoeff[0] = 0.0f;
+    sensor->Time2Reg.fCoeff[1] = 0.0f;
+    sensor->Time2Reg.fCoeff[2] = 1.0f;
+    sensor->Time2Reg.fCoeff[3] = 0.5f;
+
+    sensor->CISGainSet.CISAgainRange = {1.0f, 248.0f};
+    sensor->CISGainSet.CISExtraAgainRange = {1.0f, 1.0f};
+    sensor->CISGainSet.CISDgainRange = {1.0f, 16384.0f};
+    sensor->CISGainSet.CISIspDgainRange = {1.0f, 1.0f};
+    sensor->CISGainSet.CISHdrGainIndSetEn = true;
+
+    sensor->CISTimeSet.Linear.CISTimeRegMin = 1;
+    sensor->CISTimeSet.Linear.CISLinTimeRegMaxFac.fCoeff[0] = 1.0f;
+    sensor->CISTimeSet.Linear.CISLinTimeRegMaxFac.fCoeff[1] = 10.0f;
+    sensor->CISTimeSet.Linear.CISTimeRegOdevity.fCoeff[0] = 1.0f;
+    sensor->CISTimeSet.Linear.CISTimeRegOdevity.fCoeff[1] = 0.0f;
+    sensor->CISTimeSet.Hdr[0].name = HDR_TWO_FRAME;
+    sensor->CISTimeSet.Hdr[0].CISTimeRegUnEqualEn = true;
+    sensor->CISTimeSet.Hdr[0].CISTimeRegMin = 2;
+    sensor->CISTimeSet.Hdr[0].CISHdrTimeRegSumFac.fCoeff[0] = 1.0f;
+    sensor->CISTimeSet.Hdr[0].CISHdrTimeRegSumFac.fCoeff[1] = 18.0f;
+    sensor->CISTimeSet.Hdr[0].CISTimeRegOdevity.fCoeff[0] = 2.0f;
+    sensor->CISTimeSet.Hdr[0].CISTimeRegOdevity.fCoeff[1] = 0.0f;
+    sensor->CISTimeSet.Hdr[1].name = HDR_THREE_FRAME;
+    sensor->CISTimeSet.Hdr[1].CISTimeRegUnEqualEn = true;
+    sensor->CISTimeSet.Hdr[1].CISTimeRegMin = 3;
+    sensor->CISTimeSet.Hdr[1].CISHdrTimeRegSumFac.fCoeff[0] = 1.0f;
+    sensor->CISTimeSet.Hdr[1].CISHdrTimeRegSumFac.fCoeff[1] = 39.0f;
+    sensor->CISTimeSet.Hdr[1].CISTimeRegOdevity.fCoeff[0] = 3.0f;
+    sensor->CISTimeSet.Hdr[1].CISTimeRegOdevity.fCoeff[1] = 0.0f;
+
+    sensor->CISHdrSet.hdr_en = false;
+    sensor->CISHdrSet.hdr_mode = RK_AIQ_ISP_HDR_MODE_3_LINE_HDR;
+    sensor->CISHdrSet.line_mode = RKAIQ_SENSOR_HDR_MODE_DCG;
+    sensor->CISMinFps = 20.0f;
+    return true;
+}
+
+bool populate_ka2_ae_calibration(CalibDb_Aec_ParaV2_t* ae) {
+    if (!ae) return false;
+
+    auto& common = ae->CommCtrl;
+    // Camerad owns exposure decisions through the custom AE callback. Keep
+    // stock AE disabled while retaining its statistics configuration.
+    common.Enable = false;
+    common.AecRunInterval = 0;
+    common.AecOpType = RK_AIQ_OP_MODE_AUTO;
+    common.HistStatsMode = CAM_HISTV2_MODE_Y;
+    common.RawStatsMode = CAM_RAWSTATSV2_MODE_Y;
+    common.YRangeMode = CAM_YRANGEV2_MODE_FULL;
+    std::fill(common.AecGridWeight,
+              common.AecGridWeight + AECV2_MAX_GRIDWEIGHT_NUM, 1);
+    common.AecSpeed.SmoothEn = true;
+    common.AecSpeed.DampOver = 0.75f;
+    common.AecSpeed.DampUnder = 0.85f;
+    common.AecSpeed.DampDark2Bright = 0.15f;
+    common.AecSpeed.DampBright2Dark = 0.45f;
+    common.AecSpeed.DyDamp.DyDampEn = true;
+    common.AecSpeed.DyDamp.SlowOPType = RK_AIQ_OP_MODE_AUTO;
+    common.AecSpeed.DyDamp.SlowRange = 15.0f;
+    common.AecSpeed.DyDamp.SlowDamp = 0.95f;
+    common.AecDelay.DelayType = DELAY_TYPE_FRAME;
+    common.AecFrameRateMode.isFpsFix = true;
+    common.AecFrameRateMode.FpsValue = 20.0f;
+    common.AecAntiFlicker.enable = true;
+    common.AecAntiFlicker.Frequency = AECV2_FLICKER_FREQUENCY_50HZ;
+    common.AecAntiFlicker.Mode = AECV2_ANTIFLICKER_AUTO_MODE;
+    common.AecWinScale.InRawWinScale = {0.0f, 0.0f, 1.0f, 1.0f};
+    common.AecWinScale.TmoRawWinScale = {0.1f, 0.1f, 0.9f, 0.9f};
+    common.AecWinScale.YuvWinScale = {0.0f, 0.0f, 1.0f, 1.0f};
+
+    auto& linear = ae->LinearAeCtrl;
+    linear.RawStatsEn = true;
+    linear.ToleranceIn = 2.0f;
+    linear.ToleranceOut = 5.0f;
+    linear.StrategyMode = AECV2_STRATEGY_MODE_LOWLIGHT;
+    linear.InitExp.InitTimeValue = 0.001f;
+    linear.InitExp.InitGainValue = 1.0f;
+    linear.InitExp.InitIspDGainValue = 1.0f;
+    linear.InitExp.InitPIrisGainValue = 512;
+    linear.InitExp.InitDCIrisDutyValue = 100;
+    linear.InitExp.InitHDCIrisTargetValue = 1023;
+
+    static constexpr float kTimeDot[] = {
+        0.0f, 0.0001f, 0.0002f, 0.0004f, 0.0006f, 0.0008f, 0.001f,
+        0.002f, 0.004f, 0.006f, 0.008f, 0.01f, 0.012f, 0.014f,
+        0.016f, 0.018f, 0.02f,
+    };
+    static constexpr float kGainDot[] = {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.2f, 1.4f, 1.6f, 1.8f, 2.0f,
+    };
+    static constexpr float kIspDGainDot[] = {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
+    };
+    static constexpr int kPIrisDot[] = {
+        512, 512, 512, 512, 512, 512, 512, 512, 512,
+        512, 512, 512, 512, 512, 512, 512, 512,
+    };
+    auto& route = linear.Route;
+    route.TimeDot_len = sizeof(kTimeDot) / sizeof(kTimeDot[0]);
+    route.GainDot_len = sizeof(kGainDot) / sizeof(kGainDot[0]);
+    route.IspDGainDot_len = sizeof(kIspDGainDot) / sizeof(kIspDGainDot[0]);
+    route.PIrisDot_len = sizeof(kPIrisDot) / sizeof(kPIrisDot[0]);
+    if (!calib_copy_array(route.TimeDot, kTimeDot, route.TimeDot_len) ||
+            !calib_copy_array(route.GainDot, kGainDot, route.GainDot_len) ||
+            !calib_copy_array(route.IspDGainDot, kIspDGainDot, route.IspDGainDot_len) ||
+            !calib_copy_array(route.PIrisDot, kPIrisDot, route.PIrisDot_len)) return false;
+
+    static constexpr float kSetpointLevel[] = {
+        0.0f, 0.192f, 0.384f, 0.576f, 0.768f, 0.96f, 1.152f, 1.344f,
+    };
+    static constexpr float kSetpoint[] = {4.2f, 3.6f, 3.0f, 2.4f, 1.8f, 1.2f, 0.6f, 0.0f};
+    auto& setpoint = linear.DySetpoint;
+    setpoint.ExpLevel_len = sizeof(kSetpointLevel) / sizeof(kSetpointLevel[0]);
+    setpoint.DySetpoint_len = sizeof(kSetpoint) / sizeof(kSetpoint[0]);
+    if (!calib_copy_array(setpoint.ExpLevel, kSetpointLevel, setpoint.ExpLevel_len) ||
+            !calib_copy_array(setpoint.DySetpoint, kSetpoint, setpoint.DySetpoint_len)) return false;
+
+    linear.BackLightCtrl.Enable = false;
+    linear.OverExpCtrl.Enable = false;
+    return true;
+}
+
 }  // namespace
 
 CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(
@@ -702,6 +905,13 @@ CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(
              !calib->lsc_red || !calib->lsc_green_r || !calib->lsc_green_b || !calib->lsc_blue ||
              calib->lsc_mesh_len != 17 * 17)) {
         XCAM_LOG_ERROR("invalid typed KA2 LSC view");
+        return nullptr;
+    }
+    if (calib->bayer2dnr &&
+            (!calib->bayer2dnr->lumapoint || !calib->bayer2dnr->settings ||
+             calib->bayer2dnr->iso_count != RK_AIQ_KA2_BAYER2DNR_ISO_COUNT ||
+             !calib->bayer2dnr->setting_count || calib->bayer2dnr->setting_count > 2)) {
+        XCAM_LOG_ERROR("invalid typed KA2 Bayer2DNR view");
         return nullptr;
     }
 
@@ -735,8 +945,10 @@ CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(
     project->sensor_calib.CISExpUpdate.Linear.dcg_update = calib->exp_update[2];
     project->sensor_calib.CISExpUpdate.Hdr = project->sensor_calib.CISExpUpdate.Linear;
     project->sensor_calib.CISFlip = calib->sensor_flip;
+    if (!populate_ka2_sensor_calibration(&project->sensor_calib)) goto error;
 
     scene = &project->main_scene[0].sub_scene[0].scene_isp30;
+    if (!populate_ka2_ae_calibration(&scene->ae_calib)) goto error;
     scene->ccm_calib.control.enable = calib->ccm_enable != 0;
     scene->ccm_calib.control.wbgain_tolerance = calib->ccm_wbgain_tolerance;
     scene->ccm_calib.control.gain_tolerance = calib->ccm_gain_tolerance;
@@ -816,6 +1028,9 @@ CamCalibDbProj_t *RkAiqCalibDbV2::createCalibDbProj(
         memcpy(table->lsc_samples_greenB.uCoeff, calib->lsc_green_b, sizeof(table->lsc_samples_greenB.uCoeff));
         memcpy(table->lsc_samples_blue.uCoeff, calib->lsc_blue, sizeof(table->lsc_samples_blue.uCoeff));
     }
+
+    if (calib->bayer2dnr && !populate_ka2_bayer2dnr(&scene->bayer2dnr_v2,
+                                                     calib->bayer2dnr)) goto error;
 
     project->sys_static_cfg.algoSwitch.enable = true;
     project->sys_static_cfg.algoSwitch.disable_algos = static_cast<DisableAlgoType_t*>(
